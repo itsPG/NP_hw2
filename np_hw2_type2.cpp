@@ -15,6 +15,8 @@
 #include <arpa/inet.h>
 #include <map>
 #include <signal.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #define ROOT_DIC "/home/PG/PG/"
 #define DEBUG 0
 #define PIPEMAX 100000
@@ -48,11 +50,12 @@ public:
 	string str;
 	PG_FIFO()
 	{
-		BUFMAX = 1000000;
+		BUFMAX = 100000;
 		buf = new char[BUFMAX+1];
 	}
 	void fifo_open(string q)
 	{
+		q = "/tmp/" + q;
 		mkfifo(q.c_str(),0666);
 		fd = open(q.data(),O_RDWR|O_NONBLOCK);
 		if(fd<0)perror("open");
@@ -61,19 +64,19 @@ public:
 	{
 		string r = "";
 		int t;
-		read(fd,buf,BUFMAX);
+		t = read(fd,buf,BUFMAX);
+		buf[t] = '\0';
 		r = buf;
 		return r;
 	}
 	void put(string q)
 	{
-		write(fd,q.c_str(),BUFMAX);
+		if(write(fd,q.c_str(),q.size())<0)perror("write");
 	}
 	~PG_FIFO()
 	{
 		delete buf;
 	}
-	
 };
 class PG_global_pipe
 {
@@ -81,19 +84,84 @@ public:
 	PG_global_pipe()
 	{
 		//mkfifo("test",0666);
-	}	
+	}
+	PG_FIFO FIFO[51];
+	void create_global_pipes()
+	{
+		string fn;
+		for (int i = 1; i <= 30; i++)
+		{
+			fn = "test_"+i2s(i);
+			FIFO[i].fifo_open(fn);
+		}
+	}
 	void test()
 	{
-		PG_FIFO a;
-		a.fifo_open("test");
-		cout << "1" << endl;
-		a.put("fgsdfgsdfg");
-		cout << "2" << endl;
-		string t = a.get();
-		cout << "3" << endl;
-		cout << t << endl;
+
+		create_global_pipes();
+		FIFO[3].put("21684698463608468409048\n");
+		FIFO[5].put("abc");
+		FIFO[3].put("111111111111111111111111111111111");
+		FIFO[3].put("111111111111111111111111111111111");
+		FIFO[3].put("111111111111111111111111111111111");
+		FIFO[3].put("111111111111111111111111111111111");
+		FIFO[3].put("111111111111111111111111111111111");
+		FIFO[3].put("111111111111111111111111111111111");
+		cout << FIFO[3].get() << endl;
+		FIFO[3].put("efefefefef");
+		cout << FIFO[3].get() << endl;
+		
 	}
 
+};
+class PG_share_memory
+{
+public:
+	char *buf;
+	// buf[30][10][1025];
+	int shm_id;
+	
+	PG_share_memory()
+	{
+		
+		
+	}
+	int create()
+	{
+		int r = shmget(IPC_PRIVATE, 512000, 0666);
+		if (r < 0){perror("create");}
+		return r;
+	}
+	void link(int q)
+	{
+		shm_id = q;
+		if ( (buf = (char*)shmat(q, 0, 0)) < (char*)0 )perror("create");
+		
+	}
+	void unlink(int q)
+	{
+		shmdt((void*)shm_id);
+		
+	}
+	void test()
+	{
+		int t; cin >> t;
+		if(t==-1)
+			shm_id = create();
+		else shm_id = t;
+		cout << "shm_id " << shm_id << endl;
+		link(shm_id);
+		if (t != -1)
+		{
+			cout << buf << endl;
+			return;
+		}
+		string tmp;
+		cin >> tmp;
+		strcpy(buf, tmp.c_str());
+		unlink(shm_id);
+	}
+	
 };
 class PG_pipe
 {
@@ -498,6 +566,9 @@ void pipe_exec(PG_pipe &Elie, PG_cmd &Tio, int from, int to)
 }
 int main()
 {
+	PG_share_memory PGB;
+	PGB.test();
+	return 0;
 	PG_global_pipe PG;
 	PG.test();
 	return 0;
