@@ -41,6 +41,10 @@ int s2i(string q)
 	ssin >> r;
 	return r;
 }
+class PG_MSGBOX
+{
+	
+};
 class PG_FIFO
 {
 public:
@@ -117,9 +121,16 @@ public:
 class PG_share_memory
 {
 public:
-	char *buf;
-	// buf[30][10][1025];
+
 	int shm_id;
+	struct PG_extra_data
+	{
+		char msg[31][11][2001];
+		int user_max;
+		int m[31];
+		int port[31];
+	};
+	PG_extra_data *buf;
 	
 	PG_share_memory()
 	{
@@ -128,19 +139,51 @@ public:
 	}
 	int create()
 	{
-		int r = shmget(IPC_PRIVATE, 512000, 0666);
+		int r = shmget(IPC_PRIVATE, 700000, 0666);
 		if (r < 0){perror("create");}
+		if ( (buf = (PG_extra_data*)shmat(r, 0, 0)) < (PG_extra_data*)0 )perror("link of create");
+		/******************             init start           ************************/
+		buf->user_max = 0;
+		for (int i = 1; i <=30; i++)
+		{
+			buf->m[i] = 0;
+		}
+		/******************             init end           ************************/
+		shmdt((void*)r);
 		return r;
 	}
+	int create(int q){shm_id = create();}
 	void link(int q)
 	{
 		shm_id = q;
-		if ( (buf = (char*)shmat(q, 0, 0)) < (char*)0 )perror("create");
-		
+		if ( (buf = (PG_extra_data*)shmat(q, 0, 0)) < (PG_extra_data*)0 )perror("link");
 	}
 	void unlink(int q)
 	{
 		shmdt((void*)shm_id);
+	}
+	void send_msg(int to,string q)
+	{
+		if(to == 0)
+		{
+			for (int i = 1; i <= buf->user_max; i++)
+				send_msg(i,q);
+			return;
+		}
+		if (buf->m[to] >= 10)return;
+		strcpy(buf->msg[to][ ++buf->m[to] ], q.c_str());
+	}
+	string recv_msg(int id)
+	{
+		string r = "", t;
+		for (int i = 1; i <= buf->m[id]; i++)
+		{
+			t = buf->msg[id][i];
+			r += t + "\n";
+		}
+		buf->m[id] = 0;
+		//cout << r << endl;
+		return r;
 		
 	}
 	void test()
@@ -153,12 +196,16 @@ public:
 		link(shm_id);
 		if (t != -1)
 		{
-			cout << buf << endl;
+			cout << recv_msg(7) << endl;
 			return;
 		}
 		string tmp;
 		cin >> tmp;
-		strcpy(buf, tmp.c_str());
+		send_msg(7,"****************");
+		send_msg(7,tmp);
+		send_msg(7,"!!!!!!!!!!!!!!!!");
+		//strcpy(buf->msg[1][2], tmp.c_str());
+		//buf->m[13] = 3510;
 		unlink(shm_id);
 	}
 	
@@ -527,6 +574,44 @@ public:
 	}
 
 };
+class PG_ChatRoom
+{
+public:
+	PG_share_memory share_memory;
+	PG_FIFO FIFO;
+	void init()
+	{
+		cout << "id is " << share_memory.create(0) << endl;
+	}
+	void init(int q)
+	{
+		share_memory.link(q);
+	}
+	void test()
+	{
+		int id = ++share_memory.buf->user_max;
+		cout << "this is client id " << share_memory.buf->user_max << endl;
+		while (1)
+		{
+			string str;
+			str = share_memory.recv_msg(id);
+			cout << "-------------msg list --------" << endl;
+			cout << str;
+			cout << "------------   end    --------" << endl;
+			cout << "select id to talk ";
+			int t;
+			cin >> t;
+			cout << "type some words";
+			cin.ignore();
+			getline(cin, str);
+			share_memory.send_msg(t, str);
+		}
+	}
+	~PG_ChatRoom()
+	{
+		share_memory.buf->user_max--;
+	}
+};
 void pipe_exec(PG_pipe &Elie, PG_cmd &Tio, int from, int to)
 {
 	PG_process Rixia;
@@ -564,8 +649,23 @@ void pipe_exec(PG_pipe &Elie, PG_cmd &Tio, int from, int to)
 		exit(0);
 	}
 }
-int main()
+int main(int argc, char* argv[])
 {
+	PG_ChatRoom a;
+	if (argc == 2 && strcmp(argv[1],"init") == 0)
+	{
+		a.init();
+	}
+	else
+	{
+		int id;
+		cin >> id;
+		a.init(id);
+		cout << "$$$$$$" << endl;
+		a.test();
+	}
+	return 0;
+	
 	PG_share_memory PGB;
 	PGB.test();
 	return 0;
