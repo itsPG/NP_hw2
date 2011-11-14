@@ -122,11 +122,12 @@ class PG_share_memory
 {
 public:
 
-	int shm_id;
+	int shm_id, user_id;
 	struct PG_extra_data
 	{
 		char msg[31][11][2001];
 		int user_max;
+		int user_flag[31];
 		int m[31];
 		int port[31];
 	};
@@ -147,12 +148,12 @@ public:
 		for (int i = 1; i <=30; i++)
 		{
 			buf->m[i] = 0;
+			buf->user_flag[i] = 0;
 		}
 		/******************             init end           ************************/
 		shmdt((void*)r);
 		return r;
 	}
-	int create(int q){shm_id = create();}
 	void link(int q)
 	{
 		shm_id = q;
@@ -162,6 +163,20 @@ public:
 	{
 		shmdt((void*)shm_id);
 	}
+	void login()
+	{
+		for (int i = 1; i <= 30; i++)
+		{
+			if (buf->user_flag[i] == 0)
+			{
+				user_id = i;
+				buf->user_max = i;
+				buf->user_flag[i] = 1;
+				return;
+			}
+		}
+	}
+	
 	void send_msg(int to,string q)
 	{
 		if(to == 0)
@@ -579,18 +594,30 @@ class PG_ChatRoom
 public:
 	PG_share_memory share_memory;
 	PG_FIFO FIFO;
+	void init_firsttime()
+	{
+		int t = share_memory.create();
+		cout << "id is " << t << endl;
+		ofstream fout("/tmp/PG_autoid");
+		fout << t << endl;
+		fout.close();		
+	}
 	void init()
 	{
-		cout << "id is " << share_memory.create(0) << endl;
-	}
-	void init(int q)
-	{
-		share_memory.link(q);
+		int t;
+		ifstream fin("/tmp/PG_autoid");
+		fin >> t;
+		fin.close();
+		//cout << "get " << t << endl;
+		
+		share_memory.link(t);
+		share_memory.login();
+		
 	}
 	void test()
 	{
-		int id = ++share_memory.buf->user_max;
-		cout << "this is client id " << share_memory.buf->user_max << endl;
+		int id = share_memory.user_id;
+		cout << "this is client id " << share_memory.user_id << endl;
 		while (1)
 		{
 			string str;
@@ -654,13 +681,11 @@ int main(int argc, char* argv[])
 	PG_ChatRoom a;
 	if (argc == 2 && strcmp(argv[1],"init") == 0)
 	{
-		a.init();
+		a.init_firsttime();
 	}
 	else
 	{
-		int id;
-		cin >> id;
-		a.init(id);
+		a.init();
 		cout << "$$$$$$" << endl;
 		a.test();
 	}
