@@ -371,6 +371,8 @@ class PG_TCP
 {
 public:
 	int c_fd, l_fd, pid;
+	string my_ip;
+	int my_port;
 	int harmonics()
 	{
 		int pid, stat;
@@ -408,7 +410,7 @@ public:
 		while(1)
 		{
 			r = bind(l_fd, (struct sockaddr *)&sin, sizeof(sin));
-			cout << "bind: " << r << endl;
+			cout << "bind: " << sin.sin_port << endl;
 			if(r == 0)break;
 			usleep(500000);
 		}
@@ -419,7 +421,12 @@ public:
 		{
 			usleep(500000);
 			c_fd = accept(l_fd, (struct sockaddr *) &cin, &len); 
+			my_port = ntohs(cin.sin_port);
+			char addr_p[INET_ADDRSTRLEN];
+			my_ip = inet_ntop(AF_INET, &cin.sin_addr, addr_p, sizeof(addr_p));
 			cout << "accept: " << c_fd << endl;
+			cout << "IP: " << my_ip << endl;
+			cout << "port: " << ntohs(cin.sin_port) << endl;
 			if (pid = harmonics())
 			{
 				cout << "parent" << endl;
@@ -473,78 +480,5 @@ void pipe_exec(PG_pipe &Elie, PG_cmd &Tio, int from, int to)
 		close(fd[1]);
 		Tio.exec_seg(from);
 		exit(0);
-	}
-}
-class PG_ChatRoom;
-
-void shell_main(PG_ChatRoom &ChatRoom)
-{
-	PG_pipe Elie;
-	PG_cmd Tio;
-	PG_process Rixia;
-	int seq_no = 0,pid;
-	PG_TCP Noel;
-	chdir(ROOT_DIC);
-	Noel.go();
-	welcome_msg();
-	
-	
-	while (1)
-	{
-		cout << "% ";
-		Tio.seq_no = ++seq_no;
-		Tio.read();
-		Tio.parse();
-		//Tio.show();	
-		if (Tio.exit_flag) exit(0);
-		
-		int pipe_to = 0;
-		if(Tio.delay) 
-		{
-			pipe_to = seq_no + Tio.delay;
-			Elie.connect(seq_no, pipe_to);
-		}
-		
-		if (pid = Rixia.harmonics())
-		{
-			Elie.fix_main(seq_no);
-			Rixia.Wait();
-		}
-		else
-		{
-			Elie.fix_stdin(seq_no);
-			
-			if (Tio.pipe_err_flag)
-				Elie.fix_stdout(seq_no,1);
-			else
-				Elie.fix_stdout(seq_no,0);
-
-			Elie.clean_pipe();
-			
-			if (Tio.redirect_to != "")
-				Elie.redirect_to_file(Tio.redirect_to);
-			//if (Tio.recv_from_user)
-			//	Elie.recv_from_user(Tio.recv_from_user);
-			//if (Tio.send_to_user)
-			//	Elie.send_to_user(Tio.send_to_user);
-			if (Tio.ext_cmd != "")
-			{
-
-				
-				
-			}
-			
-			
-			if(Tio.pipe_seg.size() > 2)
-			{
-				pipe_exec(Elie, Tio, 0, Tio.pipe_seg.size()-2);
-				exit(0);
-				cerr << "failed to exit" << endl;
-			}
-			else
-			{
-				Tio.exec();
-			}
-		}
 	}
 }

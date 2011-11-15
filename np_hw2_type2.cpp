@@ -131,6 +131,7 @@ public:
 		int user_flag[31];
 		int m[31];
 		int port[31];
+		char ip[31][20];
 	};
 	PG_extra_data *buf;
 	
@@ -164,7 +165,7 @@ public:
 	{
 		shmdt((void*)shm_id);
 	}
-	void login()
+	void login(string ip, int port)
 	{
 		for (int i = 1; i <= 30; i++)
 		{
@@ -173,6 +174,8 @@ public:
 				user_id = i;
 				buf->user_max = i;
 				buf->user_flag[i] = 1;
+				strcpy(buf->ip[i], ip.c_str());
+				buf->port[i] = port;
 				return;
 			}
 		}
@@ -241,17 +244,24 @@ public:
 		fout << t << endl;
 		fout.close();		
 	}
-	void init()
+	void init(string ip, int port)
 	{
 		int t;
 		ifstream fin("/tmp/PG_autoid");
 		fin >> t;
 		fin.close();
 		//cout << "get " << t << endl;
-		
+		cout << "ChatRoom will init with " << ip << " / " << port << endl;
 		share_memory.link(t);
-		share_memory.login();
+		share_memory.login(ip,port);
 		
+	}
+	
+	void cmd_who()
+	{
+		cerr << "!!!!!!!!!!!!!!" << endl;
+		//cerr << "ip : " << share_memory.buf->ip[uid] << endl;
+		cerr << "port : " << share_memory.buf->port[uid] << endl;
 	}
 	void test()
 	{
@@ -280,7 +290,84 @@ public:
 	}
 };
 
+void shell_main(PG_ChatRoom &ChatRoom)
+{
+	PG_pipe Elie;
+	PG_cmd Tio;
+	PG_process Rixia;
+	int seq_no = 0,pid;
+	PG_TCP Noel;
+	chdir(ROOT_DIC);
+	Noel.go();
+	ChatRoom.init(Noel.my_ip, Noel.my_port);
+	welcome_msg();
+	
+	
+	while (1)
+	{
+		cout << " / pid : " << getpid();
+		cout << "% ";
+		Tio.seq_no = ++seq_no;
+		Tio.read();
+		Tio.parse();
+		//Tio.show();	
+		if (Tio.exit_flag) exit(0);
+		
+		int pipe_to = 0;
+		if(Tio.delay) 
+		{
+			pipe_to = seq_no + Tio.delay;
+			Elie.connect(seq_no, pipe_to);
+		}
+		
+		if (pid = Rixia.harmonics())
+		{
+			Elie.fix_main(seq_no);
+			Rixia.Wait();
+		}
+		else
+		{
+			Elie.fix_stdin(seq_no);
+			
+			if (Tio.pipe_err_flag)
+				Elie.fix_stdout(seq_no,1);
+			else
+				Elie.fix_stdout(seq_no,0);
 
+			Elie.clean_pipe();
+			
+			if (Tio.redirect_to != "")
+				Elie.redirect_to_file(Tio.redirect_to);
+			//if (Tio.recv_from_user)
+			//	Elie.recv_from_user(Tio.recv_from_user);
+			//if (Tio.send_to_user)
+			//	Elie.send_to_user(Tio.send_to_user);
+			if (Tio.ext_cmd != "")
+			{
+				
+				if (Tio.ext_cmd == "who")
+				{
+					cout << "going to exec who" << endl;
+					ChatRoom.cmd_who();
+					cout << "end" << endl;
+					exit(0);
+				}
+			}
+			
+			
+			if(Tio.pipe_seg.size() > 2)
+			{
+				pipe_exec(Elie, Tio, 0, Tio.pipe_seg.size()-2);
+				exit(0);
+				cerr << "failed to exit" << endl;
+			}
+			else
+			{
+				Tio.exec();
+			}
+		}
+	}
+}
 int main(int argc, char* argv[])
 {
 
@@ -289,9 +376,14 @@ int main(int argc, char* argv[])
 	{
 		ChatRoom.init_firsttime();
 	}
+	shell_main(ChatRoom);
+	if (argc == 2 && strcmp(argv[1],"init") == 0)
+	{
+		ChatRoom.init_firsttime();
+	}
 	else
 	{
-		ChatRoom.init();
+		//ChatRoom.init();
 		cout << "$$$$$$" << endl;
 		ChatRoom.test();
 	}
