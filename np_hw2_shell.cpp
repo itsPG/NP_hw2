@@ -162,10 +162,22 @@ public:
 		
 		for (int i = 0; i < list.size(); i++)
 		{
-			if(list[i] == ">")
+			
+			if (list[i] == ">")
 			{
 				redirect_to = list[i+1];
 				list.erase(list.begin() + i); list.erase(list.begin() + i);
+			}
+			if (list[i] == ">|")
+			{
+	
+			}
+			if (list[i] == ">!")
+			{
+
+			}
+			if (list[i][0] == ">" && list[i].size() > 1)
+			{
 			}
 		} 
 		int end = list.size() - 1;
