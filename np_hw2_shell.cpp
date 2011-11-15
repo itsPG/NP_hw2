@@ -168,7 +168,7 @@ public:
 				redirect_to = list[i+1];
 				list.erase(list.begin() + i); list.erase(list.begin() + i);
 			}
-<<<<<<< HEAD
+
 			if (list[i] == ">|")
 			{
 	
@@ -179,12 +179,8 @@ public:
 			}
 			if (list[i][0] == ">" && list[i].size() > 1)
 			{
-=======
-			else if(list[i] == ">|")
-			{
-				
->>>>>>> modify_parse
 			}
+
 		} 
 		int end = list.size() - 1;
 		if(list[end][0] =='|' || list[end][0] == '!')
