@@ -167,6 +167,10 @@ public:
 				redirect_to = list[i+1];
 				list.erase(list.begin() + i); list.erase(list.begin() + i);
 			}
+			else if(list[i] == ">|")
+			{
+				
+			}
 		} 
 		int end = list.size() - 1;
 		if(list[end][0] =='|' || list[end][0] == '!')
