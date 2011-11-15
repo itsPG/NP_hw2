@@ -102,19 +102,44 @@ public:
 		dup22(fd,1);
 		close2(fd);
 	}
-	
+	void recv_from_user(int fd)
+	{
+		close2(0);
+		dup22(fd,0);
+		close2(0);
+	}
+	void send_to_user(int fd, int type)
+	{
+		// q == 1 -> pipe stdout
+		// q == 2 -> pipe stdout and stderr
+		if (type == 1)
+		{
+			close2(1);
+			dup22(fd,1);
+			close2(fd);
+		}
+		if (type == 2)
+		{
+			close2(1); close2(2);
+			dup22(fd,1); dup22(fd,2);
+			close2(fd);
+		}
+	}
 };
 class PG_cmd
 {
 public:
 	string cmd;
 	vector<string> list;
-	string PATH[101];
-	vector<int> pipe_seg,pipe_seg_flag;
-	map<string, string> ENV;
-	int delay, delay_type;
+	string PATH[101]; // declare where to exec command
+	vector<int> pipe_seg,pipe_seg_flag;  // store parsed command, and type flag (to pipe cerr or not)
+	map<string, string> ENV; // an ENV table
+	int delay, delay_type; // |n , !n
+	int send_to_user_flag;
+	// 0:normal, 1:send stdout to user's pipe, 2:send stdout and stderr to user's pipe; 
+	int recv_from_user; 
 	int seq_no, PATH_size;
-	string prefix;
+
 	string redirect_from, redirect_to; 
 	int size;
 	bool exit_flag, pipe_err_flag;
@@ -124,9 +149,10 @@ public:
 		size = 0;
 		redirect_from = "";
 		redirect_to = "";
-		prefix = "cmd_";
 		exit_flag = 0;
 		pipe_err_flag = 0;
+		send_to_user_flag = 0;
+		recv_from_user = 0;
 		
 		PATH[0] = "bin";
 		PATH[1] = "bin"; 
@@ -162,7 +188,11 @@ public:
 		
 		for (int i = 0; i < list.size(); i++)
 		{
-			
+			/*
+				this code assume those pipe commands (i.e. > file name >| >!)
+				will appear at the last list
+			*/
+
 			if (list[i] == ">")
 			{
 				redirect_to = list[i+1];
@@ -171,15 +201,23 @@ public:
 
 			if (list[i] == ">|")
 			{
-	
+				list.erase(list.begin() + i);
+				send_to_user_flag = 1;
 			}
 			if (list[i] == ">!")
 			{
+				list.erase(list.begin() + i);
+				send_to_user_flag = 2;
 
 			}
-			if (list[i][0] == ">" && list[i].size() > 1)
+			if (list[i][0] == '<' && list[i].size() > 1)
 			{
+				list[i].erase(0);
+				istringstream ssin(list[i]);
+				ssin >> recv_from_user;
+				list.erase(list.begin() + i);
 			}
+			
 
 		} 
 		int end = list.size() - 1;
@@ -449,14 +487,18 @@ void shell_main()
 		else
 		{
 			Elie.fix_stdin(seq_no);
+			
 			if (Tio.pipe_err_flag)
 				Elie.fix_stdout(seq_no,1);
 			else
 				Elie.fix_stdout(seq_no,0);
+
 			Elie.clean_pipe();
+			
 			if (Tio.redirect_to != "")
 				Elie.redirect_to_file(Tio.redirect_to);
-			
+			if (Tio.recv_from_user)
+				Elie.recv_from_user(Tio.recv_from_user);
 			if(Tio.pipe_seg.size() > 2)
 			{
 				pipe_exec(Elie, Tio, 0, Tio.pipe_seg.size()-2);
