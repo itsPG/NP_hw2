@@ -139,8 +139,10 @@ public:
 	// 0:normal, 1:send stdout to user's pipe, 2:send stdout and stderr to user's pipe; 
 	int recv_from_user; 
 	int seq_no, PATH_size;
+	int ext_cmd_clientID;
 
-	string redirect_from, redirect_to; 
+	string redirect_from, redirect_to, ext_cmd;
+	string chat_msg; 
 	int size;
 	bool exit_flag, pipe_err_flag;
 	
@@ -184,6 +186,8 @@ public:
 			else tmp += cmd[i];
 		}
 		if (tmp != "")list.push_back(tmp);
+		
+		
 		/***********************************************************************************************/
 		
 		for (int i = 0; i < list.size(); i++)
@@ -216,7 +220,25 @@ public:
 				ssin >> recv_from_user;
 				list.erase(list.begin() + i);
 			}
-		} 
+		}
+		/*VVVVVVVVVV                     processing extend command                 VVVVVVVVVV*/
+		ext_cmd = "";
+		
+		if (list[0] == "tell" || list[0] == "yell" || list[0] == "name")
+		{
+			istringstream ssin(cmd);
+			ssin >> ext_cmd >> ext_cmd_clientID;
+			getline(ssin, chat_msg);
+		}
+		if (list[0] == "who")
+		{
+			ext_cmd = list[0];
+			
+		}
+		/*^^^^^^^^^^                     processing extend command                 ^^^^^^^^^^*/
+		
+		
+		
 		int end = list.size() - 1;
 		if(list[end][0] =='|' || list[end][0] == '!')
 		{
@@ -252,6 +274,7 @@ public:
 	}
 	void exec(int from, int to)
 	{
+		/***************************** processing build_in commands *****************************/
 		if (list[from] == "setenv")
 		{
 			ENV[list[from+1]] = list[from+2];
@@ -274,6 +297,10 @@ public:
 			cout << ENV[list[from+1]] << endl;
 			exit(0);
 		}
+		
+		/***************************** processing build_in commands *****************************/
+		
+		
 		struct stat statbuf;
 		bool success_flag = 0;
 		string aim;
@@ -448,7 +475,9 @@ void pipe_exec(PG_pipe &Elie, PG_cmd &Tio, int from, int to)
 		exit(0);
 	}
 }
-void shell_main()
+class PG_ChatRoom;
+
+void shell_main(PG_ChatRoom &ChatRoom)
 {
 	PG_pipe Elie;
 	PG_cmd Tio;
@@ -494,8 +523,18 @@ void shell_main()
 			
 			if (Tio.redirect_to != "")
 				Elie.redirect_to_file(Tio.redirect_to);
-			if (Tio.recv_from_user)
-				Elie.recv_from_user(Tio.recv_from_user);
+			//if (Tio.recv_from_user)
+			//	Elie.recv_from_user(Tio.recv_from_user);
+			//if (Tio.send_to_user)
+			//	Elie.send_to_user(Tio.send_to_user);
+			if (Tio.ext_cmd != "")
+			{
+
+				
+				
+			}
+			
+			
 			if(Tio.pipe_seg.size() > 2)
 			{
 				pipe_exec(Elie, Tio, 0, Tio.pipe_seg.size()-2);

@@ -232,6 +232,7 @@ class PG_ChatRoom
 public:
 	PG_share_memory share_memory;
 	PG_FIFO FIFO;
+	int uid;
 	void init_firsttime()
 	{
 		int t = share_memory.create();
@@ -255,6 +256,7 @@ public:
 	void test()
 	{
 		int id = share_memory.user_id;
+		uid = id;
 		cout << "this is client id " << share_memory.user_id << endl;
 		while (1)
 		{
@@ -266,7 +268,7 @@ public:
 			cout << "select id to talk ";
 			int t;
 			cin >> t;
-			cout << "type some words";
+			cout << "type some words : ";
 			cin.ignore();
 			getline(cin, str);
 			share_memory.send_msg(t, str);
@@ -281,25 +283,27 @@ public:
 
 int main(int argc, char* argv[])
 {
-	PG_ChatRoom a;
+
+	PG_ChatRoom ChatRoom;
 	if (argc == 2 && strcmp(argv[1],"init") == 0)
 	{
-		a.init_firsttime();
+		ChatRoom.init_firsttime();
 	}
 	else
 	{
-		a.init();
+		ChatRoom.init();
 		cout << "$$$$$$" << endl;
-		a.test();
+		ChatRoom.test();
 	}
 	return 0;
 	
+	/*
 	PG_share_memory PGB;
 	PGB.test();
 	return 0;
 	PG_global_pipe PG;
 	PG.test();
 	return 0;
-
-	shell_main();
+	*/
+	shell_main(ChatRoom);
 }
