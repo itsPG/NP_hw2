@@ -250,7 +250,7 @@ public:
 		ifstream fin("/tmp/PG_autoid");
 		fin >> t;
 		fin.close();
-		//cout << "get " << t << endl;
+		cout << "shmid is" << t << endl;
 		cout << "ChatRoom will init with " << ip << " / " << port << endl;
 		share_memory.link(t);
 		share_memory.login(ip,port);
@@ -299,8 +299,9 @@ void shell_main(PG_ChatRoom &ChatRoom)
 	PG_TCP Noel;
 	chdir(ROOT_DIC);
 	Noel.go();
-	ChatRoom.init(Noel.my_ip, Noel.my_port);
 	welcome_msg();
+	
+	ChatRoom.init(Noel.my_ip, Noel.my_port);
 	
 	
 	while (1)
