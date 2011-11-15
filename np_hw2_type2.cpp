@@ -171,11 +171,14 @@ public:
 		{
 			if (buf->user_flag[i] == 0)
 			{
+				cout << "login " << endl;
 				user_id = i;
 				buf->user_max = i;
 				buf->user_flag[i] = 1;
 				strcpy(buf->ip[i], ip.c_str());
 				buf->port[i] = port;
+				cout << "ip : " << buf->ip[i] << endl;
+				cout << "port : " << buf->port[i] << endl;
 				return;
 			}
 		}
@@ -254,14 +257,24 @@ public:
 		cout << "ChatRoom will init with " << ip << " / " << port << endl;
 		share_memory.link(t);
 		share_memory.login(ip,port);
-		
+		uid = share_memory.user_id;
 	}
 	
 	void cmd_who()
 	{
-		cerr << "!!!!!!!!!!!!!!" << endl;
-		//cerr << "ip : " << share_memory.buf->ip[uid] << endl;
-		cerr << "port : " << share_memory.buf->port[uid] << endl;
+		cout << "ip : " << share_memory.buf->ip[uid] << endl;
+		cout << "port : " << share_memory.buf->port[uid] << endl;
+	}
+	void cmd_tell(int to, string msg)
+	{
+		cout << "this is client id " << share_memory.user_id << endl;
+		string str;
+		str = share_memory.recv_msg(uid);
+		cout << "-------------msg list --------" << endl;
+		cout << str;
+		cout << "------------   end    --------" << endl;
+		
+		share_memory.send_msg(to, msg);
 	}
 	void test()
 	{
@@ -348,9 +361,12 @@ void shell_main(PG_ChatRoom &ChatRoom)
 				
 				if (Tio.ext_cmd == "who")
 				{
-					cout << "going to exec who" << endl;
 					ChatRoom.cmd_who();
-					cout << "end" << endl;
+					exit(0);
+				}
+				if (Tio.ext_cmd == "tell")
+				{
+					ChatRoom.cmd_tell(Tio.ext_cmd_clientID, Tio.chat_msg);
 					exit(0);
 				}
 			}
