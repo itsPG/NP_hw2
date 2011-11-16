@@ -390,6 +390,7 @@ void shell_main(PG_ChatRoom &ChatRoom)
 	{
 		perror("cant regist SIGUSR1");
 	}
+	cout << "before while 1" << endl;
 	while (1)
 	{
 		//cout << "-----msg_start-----" << endl;
@@ -414,11 +415,27 @@ void shell_main(PG_ChatRoom &ChatRoom)
 			pipe_to = seq_no + Tio.delay;
 			Elie.connect(seq_no, pipe_to);
 		}
-		//cout << "before fork" << endl;
+		cout << "before fork" << endl;
 		if (pid = Rixia.harmonics())
 		{
 			Elie.fix_main(seq_no);
 			Rixia.Wait();
+			if (Tio.send_to_user_flag)
+			{
+				int uid = ChatRoom.uid;
+				string name = share_memory.buf->name[uid], Tio_cmd = Tio.cmd;
+				Tio_cmd.erase(Tio_cmd.size()-1,1);
+				if	(share_memory.buf->pipe_used_flag[uid])
+				{
+				}
+				else
+				{
+					ostringstream sout;
+					sout << "*** " << name << " (#" << i2s(uid) << ") just piped \'" << Tio_cmd;
+					sout << "\' into his/her pipe. ***";
+					ChatRoom.broadcast(sout.str());
+				}
+			}
 		}
 		else
 		{
@@ -470,7 +487,7 @@ void shell_main(PG_ChatRoom &ChatRoom)
 					ostringstream sout;
 					sout << "*** " << name << " (#" << i2s(uid) << ") just piped \'" << Tio_cmd;
 					sout << "\' into his/her pipe. ***";
-					ChatRoom.broadcast(sout.str());
+					//ChatRoom.broadcast(sout.str());
 					share_memory.buf->pipe_used_flag[uid] = 1;
 					Elie.send_to_user(ChatRoom.global_pipe.FIFO[ChatRoom.uid].fd, 1);
 				}
