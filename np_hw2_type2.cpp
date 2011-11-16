@@ -379,6 +379,12 @@ void shell_main(PG_ChatRoom &ChatRoom)
 	PG_TCP Noel;
 	chdir(ROOT_DIC);
 	Noel.go();
+	
+	cout << "before SIGUSER" << endl;
+	if (signal(SIGUSR1,handler) == SIG_ERR)
+	{
+		perror("cant regist SIGUSR1");
+	}
 	welcome_msg();
 	
 	if (PROG_TYPE == 1)
@@ -386,11 +392,7 @@ void shell_main(PG_ChatRoom &ChatRoom)
 	else
 		ChatRoom.init(Noel.my_ip, getpid());
 	
-	if (signal(SIGUSR1,handler) == SIG_ERR)
-	{
-		perror("cant regist SIGUSR1");
-	}
-	cout << "before while 1" << endl;
+	
 	while (1)
 	{
 		//cout << "-----msg_start-----" << endl;
@@ -415,7 +417,7 @@ void shell_main(PG_ChatRoom &ChatRoom)
 			pipe_to = seq_no + Tio.delay;
 			Elie.connect(seq_no, pipe_to);
 		}
-		cout << "before fork" << endl;
+		//cout << "before fork" << endl;
 		if (pid = Rixia.harmonics())
 		{
 			Elie.fix_main(seq_no);
