@@ -104,9 +104,9 @@ public:
 	}
 	void recv_from_user(int fd)
 	{
+		//cout << "receiving fd: " << fd << endl;
 		close2(0);
 		dup22(fd,0);
-		close2(0);
 	}
 	void send_to_user(int fd, int type)
 	{
@@ -114,6 +114,7 @@ public:
 		// q == 2 -> pipe stdout and stderr
 		if (type == 1)
 		{
+			//cout << "duping fd : " << fd << endl;
 			close2(1);
 			dup22(fd,1);
 			close2(fd);
@@ -139,8 +140,10 @@ public:
 	// 0:normal, 1:send stdout to user's pipe, 2:send stdout and stderr to user's pipe; 
 	int recv_from_user; 
 	int seq_no, PATH_size;
+	int ext_cmd_clientID;
 
-	string redirect_from, redirect_to; 
+	string redirect_from, redirect_to, ext_cmd;
+	string chat_msg; 
 	int size;
 	bool exit_flag, pipe_err_flag;
 	
@@ -169,7 +172,8 @@ public:
 		redirect_to = "";
 		delay = 0;
 		list.clear();
-		
+		recv_from_user = 0;
+		send_to_user_flag = 0;
 		/***********************************************************************************************/
 		for (int i = 0; i < cmd.size(); i++)
 		{
@@ -184,6 +188,8 @@ public:
 			else tmp += cmd[i];
 		}
 		if (tmp != "")list.push_back(tmp);
+		
+		
 		/***********************************************************************************************/
 		
 		for (int i = 0; i < list.size(); i++)
@@ -210,16 +216,44 @@ public:
 				send_to_user_flag = 2;
 
 			}
-			if (list[i][0] == '<' && list[i].size() > 1)
+
+			if (list[i][0] == '<')
 			{
-				list[i].erase(0);
+				//cout << "in!" << endl;
+				list[i].erase(0,1);
 				istringstream ssin(list[i]);
 				ssin >> recv_from_user;
+
 				list.erase(list.begin() + i);
 			}
-			
-
 		} 
+		/*VVVVVVVVVV                     processing extend command                 VVVVVVVVVV*/
+		ext_cmd = "";
+		
+		if (list[0] == "tell")
+		{
+			istringstream ssin(cmd);
+			ssin >> ext_cmd >> ext_cmd_clientID;
+			while(ssin.peek()==' ')ssin.get();
+			getline(ssin, chat_msg);
+			chat_msg.erase(chat_msg.size()-1,1);
+			
+		}
+		if (list[0] == "yell" || list[0] == "name")
+		{
+			istringstream ssin(cmd);
+			ssin >> ext_cmd;
+			while(ssin.peek()==' ')ssin.get();
+			getline(ssin, chat_msg);
+			chat_msg.erase(chat_msg.size()-1,1);
+		}
+		if (list[0] == "who")
+		{
+			ext_cmd = list[0];
+			
+		}
+		/*^^^^^^^^^^                     processing extend command                 ^^^^^^^^^^*/
+		
 		int end = list.size() - 1;
 		if(list[end][0] =='|' || list[end][0] == '!')
 		{
@@ -255,6 +289,7 @@ public:
 	}
 	void exec(int from, int to)
 	{
+		/***************************** processing build_in commands *****************************/
 		if (list[from] == "setenv")
 		{
 			ENV[list[from+1]] = list[from+2];
@@ -277,6 +312,10 @@ public:
 			cout << ENV[list[from+1]] << endl;
 			exit(0);
 		}
+		
+		/***************************** processing build_in commands *****************************/
+		
+		
 		struct stat statbuf;
 		bool success_flag = 0;
 		string aim;
@@ -347,6 +386,8 @@ class PG_TCP
 {
 public:
 	int c_fd, l_fd, pid;
+	string my_ip;
+	int my_port;
 	int harmonics()
 	{
 		int pid, stat;
@@ -384,7 +425,7 @@ public:
 		while(1)
 		{
 			r = bind(l_fd, (struct sockaddr *)&sin, sizeof(sin));
-			cout << "bind: " << r << endl;
+			cout << "bind: " << sin.sin_port << endl;
 			if(r == 0)break;
 			usleep(500000);
 		}
@@ -395,7 +436,12 @@ public:
 		{
 			usleep(500000);
 			c_fd = accept(l_fd, (struct sockaddr *) &cin, &len); 
+			my_port = ntohs(cin.sin_port);
+			char addr_p[INET_ADDRSTRLEN];
+			my_ip = inet_ntop(AF_INET, &cin.sin_addr, addr_p, sizeof(addr_p));
 			cout << "accept: " << c_fd << endl;
+			cout << "IP: " << my_ip << endl;
+			cout << "port: " << ntohs(cin.sin_port) << endl;
 			if (pid = harmonics())
 			{
 				cout << "parent" << endl;
@@ -449,66 +495,5 @@ void pipe_exec(PG_pipe &Elie, PG_cmd &Tio, int from, int to)
 		close(fd[1]);
 		Tio.exec_seg(from);
 		exit(0);
-	}
-}
-void shell_main()
-{
-	PG_pipe Elie;
-	PG_cmd Tio;
-	PG_process Rixia;
-	int seq_no = 0,pid;
-	PG_TCP Noel;
-	chdir(ROOT_DIC);
-	Noel.go();
-	welcome_msg();
-	
-	
-	while (1)
-	{
-		cout << "% ";
-		Tio.seq_no = ++seq_no;
-		Tio.read();
-		Tio.parse();
-		//Tio.show();	
-		if (Tio.exit_flag) exit(0);
-		
-		int pipe_to = 0;
-		if(Tio.delay) 
-		{
-			pipe_to = seq_no + Tio.delay;
-			Elie.connect(seq_no, pipe_to);
-		}
-		
-		if (pid = Rixia.harmonics())
-		{
-			Elie.fix_main(seq_no);
-			Rixia.Wait();
-		}
-		else
-		{
-			Elie.fix_stdin(seq_no);
-			
-			if (Tio.pipe_err_flag)
-				Elie.fix_stdout(seq_no,1);
-			else
-				Elie.fix_stdout(seq_no,0);
-
-			Elie.clean_pipe();
-			
-			if (Tio.redirect_to != "")
-				Elie.redirect_to_file(Tio.redirect_to);
-			if (Tio.recv_from_user)
-				Elie.recv_from_user(Tio.recv_from_user);
-			if(Tio.pipe_seg.size() > 2)
-			{
-				pipe_exec(Elie, Tio, 0, Tio.pipe_seg.size()-2);
-				exit(0);
-				cerr << "failed to exit" << endl;
-			}
-			else
-			{
-				Tio.exec();
-			}
-		}
 	}
 }
