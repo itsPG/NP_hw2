@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <signal.h>
 #define ROOT_DIC "/home/PG/PG/"
 #define DEBUG 0
 #define PIPEMAX 100000
@@ -100,6 +101,7 @@ public:
 		int m[31];
 		int port[31];
 		char ip[31][20];
+		int pid[31];
 	};
 	PG_extra_data *buf;
 	
@@ -151,6 +153,7 @@ public:
 				buf->user_flag[i] = 1;
 				strcpy(buf->ip[i], ip.c_str());
 				buf->port[i] = port;
+				buf->pid[i] = getpid();
 				if (DEBUG)cout << "ip : " << buf->ip[i] << endl;
 				if (DEBUG)cout << "port : " << buf->port[i] << endl;
 				return;
@@ -163,7 +166,17 @@ public:
 		if (!buf->user_flag[to])return;
 		if (buf->m[to] >= 10)return;
 		strcpy(buf->msg[to][ ++buf->m[to] ], q.c_str());
+		for (int i = 1; i <= 30; i++)
+		{
+			if (buf->user_flag[i])
+			{
+				kill(buf->pid[i], SIGUSR1);
+				//if (kill(buf->pid[i], SIGUSR1) == -1)perror("fail to send signal");
+					
+			}
+		}
 	}
+	
 	string recv_msg(int id)
 	{
 		string r = "", t;
@@ -174,6 +187,10 @@ public:
 		}
 		buf->m[id] = 0;
 		return r;
+	}
+	void recv_msg()
+	{
+		cout << recv_msg(user_id);
 	}
 	void test()
 	{
@@ -347,7 +364,12 @@ public:
 		share_memory.buf->user_max--;
 	}
 };
-
+void handler(int signo)
+{
+	//cout << "handler start" << endl;
+	share_memory.recv_msg();
+	//cout << "handler end" << endl;
+}
 void shell_main(PG_ChatRoom &ChatRoom)
 {
 	PG_pipe Elie;
@@ -364,17 +386,20 @@ void shell_main(PG_ChatRoom &ChatRoom)
 	else
 		ChatRoom.init(Noel.my_ip, getpid());
 	
-	
+	if (signal(SIGUSR1,handler) == SIG_ERR)
+	{
+		perror("cant regist SIGUSR1");
+	}
 	while (1)
 	{
 		//cout << "-----msg_start-----" << endl;
-		cout << ChatRoom.recv_msg();
+		//////cout << ChatRoom.recv_msg();
 		//cout << "-----msg_end-----" << endl;
 		//cout << " / pid : " << getpid();
 		cout << "% ";
 		Tio.seq_no = ++seq_no;
 		Tio.read();
-		cout << ChatRoom.recv_msg();
+		//////cout << ChatRoom.recv_msg();
 		Tio.parse();
 		//Tio.show();	
 		if (Tio.exit_flag) 
@@ -389,7 +414,7 @@ void shell_main(PG_ChatRoom &ChatRoom)
 			pipe_to = seq_no + Tio.delay;
 			Elie.connect(seq_no, pipe_to);
 		}
-		
+		//cout << "before fork" << endl;
 		if (pid = Rixia.harmonics())
 		{
 			Elie.fix_main(seq_no);
@@ -436,7 +461,7 @@ void shell_main(PG_ChatRoom &ChatRoom)
 
 				if	(share_memory.buf->pipe_used_flag[uid])
 				{
-					cout << "pipe already exist" << endl;
+					cout << "*** Error: your pipe already exists. ***" << endl;
 					exit(0);
 				}
 				else
