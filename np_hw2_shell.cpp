@@ -104,7 +104,7 @@ public:
 	}
 	void recv_from_user(int fd)
 	{
-		cout << "receiving fd: " << fd << endl;
+		//cout << "receiving fd: " << fd << endl;
 		close2(0);
 		dup22(fd,0);
 	}
@@ -114,7 +114,7 @@ public:
 		// q == 2 -> pipe stdout and stderr
 		if (type == 1)
 		{
-			cout << "duping fd : " << fd << endl;
+			//cout << "duping fd : " << fd << endl;
 			close2(1);
 			dup22(fd,1);
 			close2(fd);
@@ -229,11 +229,22 @@ public:
 		/*VVVVVVVVVV                     processing extend command                 VVVVVVVVVV*/
 		ext_cmd = "";
 		
-		if (list[0] == "tell" || list[0] == "yell" || list[0] == "name")
+		if (list[0] == "tell")
 		{
 			istringstream ssin(cmd);
 			ssin >> ext_cmd >> ext_cmd_clientID;
+			while(ssin.peek()==' ')ssin.get();
 			getline(ssin, chat_msg);
+			chat_msg.erase(chat_msg.size()-1,1);
+			
+		}
+		if (list[0] == "yell" || list[0] == "name")
+		{
+			istringstream ssin(cmd);
+			ssin >> ext_cmd;
+			while(ssin.peek()==' ')ssin.get();
+			getline(ssin, chat_msg);
+			chat_msg.erase(chat_msg.size()-1,1);
 		}
 		if (list[0] == "who")
 		{

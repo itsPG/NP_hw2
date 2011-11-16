@@ -21,6 +21,7 @@
 #define DEBUG 0
 #define PIPEMAX 100000
 #define PIPEADD 10000000
+#define PROG_TYPE 2
 using namespace std;
 void welcome_msg()
 {
@@ -64,7 +65,7 @@ public:
 		mkfifo(q.c_str(),0666);
 		fd = open(q.data(),O_RDWR|O_NONBLOCK);
 		if(fd<0)perror("open");
-		else cout << "created " << q << " fd is " << fd << endl;
+		//else cout << "created " << q << " fd is " << fd << endl;
 	}
 	string get()
 	{
@@ -93,6 +94,7 @@ public:
 	struct PG_extra_data
 	{
 		char msg[31][11][2001];
+		char name[31][31];
 		int user_max;
 		int user_flag[31], pipe_used_flag[31];
 		int m[31];
@@ -106,6 +108,14 @@ public:
 		
 		
 	}
+	void logout(int uid)
+	{
+		buf->m[uid] = 0;
+		buf->user_flag[uid] = 0;
+		buf->pipe_used_flag[uid] = 0;
+		strcpy(buf->name[uid], "(no name)");
+		
+	}
 	int create()
 	{
 		int r = shmget(IPC_PRIVATE, 700000, 0666);
@@ -115,9 +125,7 @@ public:
 		buf->user_max = 0;
 		for (int i = 1; i <=30; i++)
 		{
-			buf->m[i] = 0;
-			buf->user_flag[i] = 0;
-			buf->pipe_used_flag[i] = 0;
+			logout(i);
 		}
 		/******************             init end           ************************/
 		shmdt((void*)r);
@@ -138,32 +146,21 @@ public:
 		{
 			if (buf->user_flag[i] == 0)
 			{
-				cout << "login " << endl;
 				user_id = i;
 				buf->user_max = i;
 				buf->user_flag[i] = 1;
 				strcpy(buf->ip[i], ip.c_str());
 				buf->port[i] = port;
-				cout << "ip : " << buf->ip[i] << endl;
-				cout << "port : " << buf->port[i] << endl;
+				if (DEBUG)cout << "ip : " << buf->ip[i] << endl;
+				if (DEBUG)cout << "port : " << buf->port[i] << endl;
 				return;
 			}
 		}
 	}
-	void logout(int uid)
-	{
-		buf->user_flag[uid] = 0;
-		buf->m[uid] = 0;
-		
-	}
+	
 	void send_msg(int to,string q)
 	{
-		if(to == 0)
-		{
-			for (int i = 1; i <= buf->user_max; i++)
-				send_msg(i,q);
-			return;
-		}
+		if (!buf->user_flag[to])return;
 		if (buf->m[to] >= 10)return;
 		strcpy(buf->msg[to][ ++buf->m[to] ], q.c_str());
 	}
@@ -176,9 +173,7 @@ public:
 			r += t + "\n";
 		}
 		buf->m[id] = 0;
-		//cout << r << endl;
 		return r;
-		
 	}
 	void test()
 	{
@@ -209,13 +204,7 @@ class PG_global_pipe
 {
 public:
 
-	PG_global_pipe()
-	{
-
-		//mkfifo("test",0666);
-	}
 	PG_FIFO FIFO[31];
-	
 	void init()
 	{
 		string fn;
@@ -225,15 +214,6 @@ public:
 			FIFO[i].fifo_open(fn);
 		}
 	}
-
-	void test()
-	{
-		
-
-		
-		
-	}
-
 };
 
 class PG_ChatRoom
@@ -242,41 +222,63 @@ public:
 	PG_global_pipe global_pipe;
 	PG_FIFO FIFO;
 	int uid;
+	string ID;
 	void init_firsttime()
 	{
 		int t = share_memory.create();
-		cout << "id is " << t << endl;
+		if (DEBUG)cout << "id is " << t << endl;
 		ofstream fout("/tmp/PG_autoid");
 		fout << t << endl;
 		fout.close();		
 	}
+	//void broadcast(string q, int f);
+	//void broadcast(string q);
 	void init(string ip, int port)
 	{
 		int t;
 		ifstream fin("/tmp/PG_autoid");
 		fin >> t;
 		fin.close();
-		cout << "shmid is" << t << endl;
-		cout << "ChatRoom will init with " << ip << " / " << port << endl;
+		if (DEBUG)cout << "shmid is" << t << endl;
+		if (DEBUG)cout << "ChatRoom will init with " << ip << " / " << port << endl;
+		ostringstream sout;
+		sout << ip << "/" << port;
+		ID = sout.str();
 		share_memory.link(t);
 		share_memory.login(ip,port);
 		uid = share_memory.user_id;
 		global_pipe.init();
+		//cout << "the ID of this user is " << ID << endl;
+		broadcast("*** User \'(no name)\' entered from " + ID + ". ***", uid);
 	}
 	string recv_msg()
 	{
 		return share_memory.recv_msg(uid);
 	}
+	void broadcast(string q)
+	{
+		cout.flush();
+		//cout << "broadcast ==== " << q << endl;
+		for (int i = 1; i <= 30; i++)
+		{
+			share_memory.send_msg(i, q);
+		}
+	}
+	void broadcast(string q, int f)
+	{
+		for (int i = 1; i <= 30; i++)
+		{
+			if (i!=f)
+				share_memory.send_msg(i, q);
+		}
+	}
 	void cmd_who()
 	{
-		//cout << "ip : " << share_memory.buf->ip[uid] << endl;
-		//cout << "port : " << share_memory.buf->port[uid] << endl;
-		//cout << "uid : " << uid << endl;
 		for (int i = 1; i <= 30; i++)
 		{
 			if (share_memory.buf->user_flag[i])
 			{
-				cout << i << "\t" << "name" << "\t" ;
+				cout << i << "\t" << share_memory.buf->name[i] << "\t" ;
 				cout << share_memory.buf->ip[i] << "/" << share_memory.buf->port[i] << "\t";
 				if (i == uid) cout << "<- me";
 				cout << endl;
@@ -285,16 +287,31 @@ public:
 	}
 	void cmd_tell(int to, string &msg)
 	{
-		share_memory.send_msg(to, msg);
+		ostringstream sout;
+		sout << "*** " << share_memory.buf->name[uid] << " told you ***:" << msg;
+		share_memory.send_msg(to, sout.str());
+		
 	}
-	void cmd_yell(int to, string &msg)
+	void cmd_yell(string &msg)
 	{
-		for (int i = 1; i <= share_memory.buf->user_max; i++)
+		for (int i = 1; i <= 30; i++)
 		{
 			if (i == uid)continue;
-			cmd_tell(i,msg);
+			ostringstream sout;
+			sout << "*** " << share_memory.buf->name[uid] << " yelled " << msg;
+			share_memory.send_msg(i, sout.str());
 			
 		}
+	}
+	void cmd_name(string q)
+	{
+		strcpy(share_memory.buf->name[uid], q.c_str());
+		//)
+		ostringstream sout;
+		//<< 
+		//cout << q.size() << endl;
+		sout << "*** User from " << ID << " is named \'" << q << "\'. ***";
+		broadcast(sout.str());
 	}
 	void test()
 	{
@@ -319,6 +336,9 @@ public:
 	}
 	void logout()
 	{
+		ostringstream sout; 
+		sout << "*** User \'" << share_memory.buf->name[uid] << "\' left. ***";
+		broadcast(sout.str(), uid);
 		share_memory.logout(uid);
 		
 	}
@@ -339,18 +359,22 @@ void shell_main(PG_ChatRoom &ChatRoom)
 	Noel.go();
 	welcome_msg();
 	
-	ChatRoom.init(Noel.my_ip, Noel.my_port);
+	if (PROG_TYPE == 1)
+		ChatRoom.init(Noel.my_ip, Noel.my_port);
+	else
+		ChatRoom.init(Noel.my_ip, getpid());
 	
 	
 	while (1)
 	{
-		cout << "-----msg_start-----" << endl;
+		//cout << "-----msg_start-----" << endl;
 		cout << ChatRoom.recv_msg();
-		cout << "-----msg_end-----" << endl;
-		cout << " / pid : " << getpid();
+		//cout << "-----msg_end-----" << endl;
+		//cout << " / pid : " << getpid();
 		cout << "% ";
 		Tio.seq_no = ++seq_no;
 		Tio.read();
+		cout << ChatRoom.recv_msg();
 		Tio.parse();
 		//Tio.show();	
 		if (Tio.exit_flag) 
@@ -386,17 +410,23 @@ void shell_main(PG_ChatRoom &ChatRoom)
 				Elie.redirect_to_file(Tio.redirect_to);
 			
 			int uid = ChatRoom.uid;
+			string name = share_memory.buf->name[uid], Tio_cmd = Tio.cmd;
+			Tio_cmd.erase(Tio_cmd.size()-1,1);
 
 			if (Tio.recv_from_user)
 			{
-				cout << "recv from user" << endl;
+				//cout << "recv from user" << endl;
 				if (share_memory.buf->pipe_used_flag[Tio.recv_from_user] == 0)
 				{
-					cout << "pipe dosent exist" << endl;
+					cout << "*** Error: the pipe from #" << Tio.recv_from_user << " does not exist yet. ***" << endl;
 					exit(0);
 				}
 				else 
 				{
+					ostringstream sout;
+					sout << "*** " << name << " (#" << i2s(uid) << ") just received from the pipe #" << Tio.recv_from_user;
+					sout << " by \'" << Tio_cmd << "\' ***";
+					ChatRoom.broadcast(sout.str());
 					share_memory.buf->pipe_used_flag[Tio.recv_from_user] = 0;
 					Elie.recv_from_user(ChatRoom.global_pipe.FIFO[Tio.recv_from_user].fd);
 				}
@@ -411,6 +441,11 @@ void shell_main(PG_ChatRoom &ChatRoom)
 				}
 				else
 				{
+					//cout << "name ~" << name << "~" << endl;
+					ostringstream sout;
+					sout << "*** " << name << " (#" << i2s(uid) << ") just piped \'" << Tio_cmd;
+					sout << "\' into his/her pipe. ***";
+					ChatRoom.broadcast(sout.str());
 					share_memory.buf->pipe_used_flag[uid] = 1;
 					Elie.send_to_user(ChatRoom.global_pipe.FIFO[ChatRoom.uid].fd, 1);
 				}
@@ -432,7 +467,12 @@ void shell_main(PG_ChatRoom &ChatRoom)
 				}
 				if (Tio.ext_cmd == "yell")
 				{
-					ChatRoom.cmd_yell(Tio.ext_cmd_clientID, Tio.chat_msg);
+					ChatRoom.cmd_yell(Tio.chat_msg);
+					exit(0);
+				}
+				if (Tio.ext_cmd == "name")
+				{
+					ChatRoom.cmd_name(Tio.chat_msg);
 					exit(0);
 				}
 			}
