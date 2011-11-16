@@ -83,42 +83,7 @@ public:
 		delete buf;
 	}
 };
-class PG_global_pipe
-{
-public:
-	PG_global_pipe()
-	{
-		//mkfifo("test",0666);
-	}
-	PG_FIFO FIFO[51];
-	void create_global_pipes()
-	{
-		string fn;
-		for (int i = 1; i <= 30; i++)
-		{
-			fn = "test_"+i2s(i);
-			FIFO[i].fifo_open(fn);
-		}
-	}
-	void test()
-	{
 
-		create_global_pipes();
-		FIFO[3].put("21684698463608468409048\n");
-		FIFO[5].put("abc");
-		FIFO[3].put("111111111111111111111111111111111");
-		FIFO[3].put("111111111111111111111111111111111");
-		FIFO[3].put("111111111111111111111111111111111");
-		FIFO[3].put("111111111111111111111111111111111");
-		FIFO[3].put("111111111111111111111111111111111");
-		FIFO[3].put("111111111111111111111111111111111");
-		cout << FIFO[3].get() << endl;
-		FIFO[3].put("efefefefef");
-		cout << FIFO[3].get() << endl;
-		
-	}
-
-};
 class PG_share_memory
 {
 public:
@@ -128,7 +93,7 @@ public:
 	{
 		char msg[31][11][2001];
 		int user_max;
-		int user_flag[31];
+		int user_flag[31], pipe_used_flag[31];
 		int m[31];
 		int port[31];
 		char ip[31][20];
@@ -151,6 +116,7 @@ public:
 		{
 			buf->m[i] = 0;
 			buf->user_flag[i] = 0;
+			buf->pipe_used_flag[i] = 0;
 		}
 		/******************             init end           ************************/
 		shmdt((void*)r);
@@ -183,7 +149,12 @@ public:
 			}
 		}
 	}
-	
+	void logout(int uid)
+	{
+		buf->user_flag[uid] = 0;
+		buf->m[uid] = 0;
+		
+	}
 	void send_msg(int to,string q)
 	{
 		if(to == 0)
@@ -232,11 +203,58 @@ public:
 	}
 	
 };
+PG_share_memory share_memory;
+class PG_global_pipe
+{
+public:
+
+	PG_global_pipe()
+	{
+
+		//mkfifo("test",0666);
+	}
+	PG_FIFO FIFO[31];
+	
+	void create_global_pipes()
+	{
+		string fn;
+		for (int i = 1; i <= 30; i++)
+		{
+			fn = "test_"+i2s(i);
+			FIFO[i].fifo_open(fn);
+		}
+	}
+	void fix_stdout(int uid)
+	{
+		close(1);
+		dup2(FIFO[uid].fd,1);
+		close(FIFO[uid].fd);
+	}
+
+	void test()
+	{
+
+		create_global_pipes();
+		FIFO[3].put("21684698463608468409048\n");
+		FIFO[5].put("abc");
+		FIFO[3].put("111111111111111111111111111111111");
+		FIFO[3].put("111111111111111111111111111111111");
+		FIFO[3].put("111111111111111111111111111111111");
+		FIFO[3].put("111111111111111111111111111111111");
+		FIFO[3].put("111111111111111111111111111111111");
+		FIFO[3].put("111111111111111111111111111111111");
+		cout << FIFO[3].get() << endl;
+		FIFO[3].put("efefefefef");
+		cout << FIFO[3].get() << endl;
+		
+	}
+
+};
 
 class PG_ChatRoom
 {
 public:
-	PG_share_memory share_memory;
+	PG_global_pipe global_pipe;
 	PG_FIFO FIFO;
 	int uid;
 	void init_firsttime()
@@ -259,22 +277,28 @@ public:
 		share_memory.login(ip,port);
 		uid = share_memory.user_id;
 	}
-	
+	string recv_msg()
+	{
+		return share_memory.recv_msg(uid);
+	}
 	void cmd_who()
 	{
 		cout << "ip : " << share_memory.buf->ip[uid] << endl;
 		cout << "port : " << share_memory.buf->port[uid] << endl;
+		cout << "uid : " << uid << endl;
 	}
-	void cmd_tell(int to, string msg)
+	void cmd_tell(int to, string &msg)
 	{
-		cout << "this is client id " << share_memory.user_id << endl;
-		string str;
-		str = share_memory.recv_msg(uid);
-		cout << "-------------msg list --------" << endl;
-		cout << str;
-		cout << "------------   end    --------" << endl;
-		
 		share_memory.send_msg(to, msg);
+	}
+	void cmd_yell(int to, string &msg)
+	{
+		for (int i = 1; i <= share_memory.buf->user_max; i++)
+		{
+			if (i == uid)continue;
+			cmd_tell(i,msg);
+			
+		}
 	}
 	void test()
 	{
@@ -296,6 +320,11 @@ public:
 			getline(cin, str);
 			share_memory.send_msg(t, str);
 		}
+	}
+	void logout()
+	{
+		share_memory.logout(uid);
+		
 	}
 	~PG_ChatRoom()
 	{
@@ -319,13 +348,20 @@ void shell_main(PG_ChatRoom &ChatRoom)
 	
 	while (1)
 	{
+		cout << "-----msg_start-----" << endl;
+		cout << ChatRoom.recv_msg();
+		cout << "-----msg_end-----" << endl;
 		cout << " / pid : " << getpid();
 		cout << "% ";
 		Tio.seq_no = ++seq_no;
 		Tio.read();
 		Tio.parse();
 		//Tio.show();	
-		if (Tio.exit_flag) exit(0);
+		if (Tio.exit_flag) 
+		{
+			ChatRoom.logout();
+			exit(0);
+		}
 		
 		int pipe_to = 0;
 		if(Tio.delay) 
@@ -352,10 +388,32 @@ void shell_main(PG_ChatRoom &ChatRoom)
 			
 			if (Tio.redirect_to != "")
 				Elie.redirect_to_file(Tio.redirect_to);
-			//if (Tio.recv_from_user)
-			//	Elie.recv_from_user(Tio.recv_from_user);
-			//if (Tio.send_to_user)
-			//	Elie.send_to_user(Tio.send_to_user);
+			
+			int uid = ChatRoom.uid;
+
+			if (Tio.recv_from_user)
+			{
+				if (share_memory.buf->pipe_used_flag[Tio.recv_from_user] == 0)
+					cout << "pipe dosent exist" << endl;
+				else 
+				{
+					share_memory.buf->pipe_used_flag[Tio.recv_from_user] = 0;
+					Elie.recv_from_user(ChatRoom.global_pipe.FIFO[Tio.recv_from_user].fd);
+				}
+			}
+			if (Tio.send_to_user_flag)
+			{
+
+				if	(share_memory.buf->pipe_used_flag[uid])
+					cout << "pipe already exist" << endl;
+				else
+				{
+					share_memory.buf->pipe_used_flag[uid] = 1;
+					Elie.send_to_user(ChatRoom.global_pipe.FIFO[ChatRoom.uid].fd, 1);
+				}
+			}
+			
+				
 			if (Tio.ext_cmd != "")
 			{
 				
@@ -367,6 +425,11 @@ void shell_main(PG_ChatRoom &ChatRoom)
 				if (Tio.ext_cmd == "tell")
 				{
 					ChatRoom.cmd_tell(Tio.ext_cmd_clientID, Tio.chat_msg);
+					exit(0);
+				}
+				if (Tio.ext_cmd == "yell")
+				{
+					ChatRoom.cmd_yell(Tio.ext_cmd_clientID, Tio.chat_msg);
 					exit(0);
 				}
 			}
