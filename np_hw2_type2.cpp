@@ -64,6 +64,7 @@ public:
 		mkfifo(q.c_str(),0666);
 		fd = open(q.data(),O_RDWR|O_NONBLOCK);
 		if(fd<0)perror("open");
+		else cout << "created " << q << " fd is " << fd << endl;
 	}
 	string get()
 	{
@@ -215,7 +216,7 @@ public:
 	}
 	PG_FIFO FIFO[31];
 	
-	void create_global_pipes()
+	void init()
 	{
 		string fn;
 		for (int i = 1; i <= 30; i++)
@@ -224,28 +225,12 @@ public:
 			FIFO[i].fifo_open(fn);
 		}
 	}
-	void fix_stdout(int uid)
-	{
-		close(1);
-		dup2(FIFO[uid].fd,1);
-		close(FIFO[uid].fd);
-	}
 
 	void test()
 	{
+		
 
-		create_global_pipes();
-		FIFO[3].put("21684698463608468409048\n");
-		FIFO[5].put("abc");
-		FIFO[3].put("111111111111111111111111111111111");
-		FIFO[3].put("111111111111111111111111111111111");
-		FIFO[3].put("111111111111111111111111111111111");
-		FIFO[3].put("111111111111111111111111111111111");
-		FIFO[3].put("111111111111111111111111111111111");
-		FIFO[3].put("111111111111111111111111111111111");
-		cout << FIFO[3].get() << endl;
-		FIFO[3].put("efefefefef");
-		cout << FIFO[3].get() << endl;
+		
 		
 	}
 
@@ -276,6 +261,7 @@ public:
 		share_memory.link(t);
 		share_memory.login(ip,port);
 		uid = share_memory.user_id;
+		global_pipe.init();
 	}
 	string recv_msg()
 	{
@@ -283,9 +269,19 @@ public:
 	}
 	void cmd_who()
 	{
-		cout << "ip : " << share_memory.buf->ip[uid] << endl;
-		cout << "port : " << share_memory.buf->port[uid] << endl;
-		cout << "uid : " << uid << endl;
+		//cout << "ip : " << share_memory.buf->ip[uid] << endl;
+		//cout << "port : " << share_memory.buf->port[uid] << endl;
+		//cout << "uid : " << uid << endl;
+		for (int i = 1; i <= 30; i++)
+		{
+			if (share_memory.buf->user_flag[i])
+			{
+				cout << i << "\t" << "name" << "\t" ;
+				cout << share_memory.buf->ip[i] << "/" << share_memory.buf->port[i] << "\t";
+				if (i == uid) cout << "<- me";
+				cout << endl;
+			}
+		}
 	}
 	void cmd_tell(int to, string &msg)
 	{
@@ -393,8 +389,12 @@ void shell_main(PG_ChatRoom &ChatRoom)
 
 			if (Tio.recv_from_user)
 			{
+				cout << "recv from user" << endl;
 				if (share_memory.buf->pipe_used_flag[Tio.recv_from_user] == 0)
+				{
 					cout << "pipe dosent exist" << endl;
+					exit(0);
+				}
 				else 
 				{
 					share_memory.buf->pipe_used_flag[Tio.recv_from_user] = 0;
@@ -405,7 +405,10 @@ void shell_main(PG_ChatRoom &ChatRoom)
 			{
 
 				if	(share_memory.buf->pipe_used_flag[uid])
+				{
 					cout << "pipe already exist" << endl;
+					exit(0);
+				}
 				else
 				{
 					share_memory.buf->pipe_used_flag[uid] = 1;
@@ -457,6 +460,9 @@ int main(int argc, char* argv[])
 		ChatRoom.init_firsttime();
 	}
 	shell_main(ChatRoom);
+	
+	
+	
 	if (argc == 2 && strcmp(argv[1],"init") == 0)
 	{
 		ChatRoom.init_firsttime();

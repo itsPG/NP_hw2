@@ -104,9 +104,9 @@ public:
 	}
 	void recv_from_user(int fd)
 	{
+		cout << "receiving fd: " << fd << endl;
 		close2(0);
 		dup22(fd,0);
-		close2(0);
 	}
 	void send_to_user(int fd, int type)
 	{
@@ -114,6 +114,7 @@ public:
 		// q == 2 -> pipe stdout and stderr
 		if (type == 1)
 		{
+			cout << "duping fd : " << fd << endl;
 			close2(1);
 			dup22(fd,1);
 			close2(fd);
@@ -171,7 +172,8 @@ public:
 		redirect_to = "";
 		delay = 0;
 		list.clear();
-		
+		recv_from_user = 0;
+		send_to_user_flag = 0;
 		/***********************************************************************************************/
 		for (int i = 0; i < cmd.size(); i++)
 		{
@@ -213,11 +215,14 @@ public:
 				send_to_user_flag = 2;
 
 			}
-			if (list[i][0] == '<' && list[i].size() > 1)
+
+			if (list[i][0] == '<')
 			{
-				list[i].erase(0);
+				//cout << "in!" << endl;
+				list[i].erase(0,1);
 				istringstream ssin(list[i]);
 				ssin >> recv_from_user;
+
 				list.erase(list.begin() + i);
 			}
 		}
