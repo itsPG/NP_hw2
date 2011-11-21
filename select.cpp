@@ -14,13 +14,9 @@ using namespace std;
 class PG_FD_set
 {
 public:
-	fd_set r_fds, a_fds;
+
 	int client_fd[31];
-	struct sockaddr_in client_sin[31];
-	int len;
-	int SERVER_PORT;
-	struct hostent *he;
-	FILE *fd;
+
 	int listen_port(int port)
 	{
 		int l_fd;
@@ -79,8 +75,29 @@ public:
 			{
 				if (fd != msock && FD_ISSET(fd, &rfds))
 				{
-					int t = read(fd, buf,sizeof(buf));
+					dup2(0,1000);
+					//dup2(1,1001);
+					dup2(fd,0);
+					//dup2(fd,1);
+					//close(fd);
+					string q;
+					if(getline(cin,q))
+					{
+						cout << fd << "| " << q << endl;
+						cerr << fd << "| " << q << endl;
+					}
+					else
+					{
+						close(fd);
+						FD_CLR(fd, &afds);
+					}
+					dup2(1000,0);
+					//dup2(1001,1);
+					close(1000);
+					//close(1001);
+					//int t = read(fd, buf,sizeof(buf));
 					//cout << "read from " << fd << endl;
+					/*
 					if (t == 0)
 					{
 						close(fd);
@@ -91,6 +108,7 @@ public:
 						buf[t-1] = '\0';
 						cout << fd << "| " << buf << endl;
 					}
+					*/
 				}
 			}
 		}
@@ -101,6 +119,5 @@ public:
 int main()
 {
 	PG_FD_set a;
-	//a.listen_port(7000);
 	a.go();
 }
