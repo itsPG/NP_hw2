@@ -240,7 +240,6 @@ public:
 	PG_cmd Tio;
 	PG_process Rixia;
 	int seq_no = 0,pid;
-	int uid;
 	void shell_main(PG_ChatRoom &ChatRoom)
 	{
 		chdir(ROOT_DIC);
@@ -274,6 +273,7 @@ public:
 				Rixia.Wait();
 				if (Tio.send_to_user_flag)
 				{
+					int uid = ChatRoom.uid;
 					string name = ex_data->name[uid], Tio_cmd = Tio.cmd;
 					Tio_cmd.erase(Tio_cmd.size()-1,1);
 					if	(ex_data->pipe_used_flag[uid])
@@ -301,7 +301,8 @@ public:
 			
 				if (Tio.redirect_to != "")
 					Elie.redirect_to_file(Tio.redirect_to);
-
+			
+				int uid = ChatRoom.uid;
 				string name = ex_data->name[uid], Tio_cmd = Tio.cmd;
 				Tio_cmd.erase(Tio_cmd.size()-1,1);
 
@@ -387,23 +388,25 @@ class PG_ChatRoom
 public:
 	PG_global_pipe global_pipe;
 	PG_FIFO FIFO;
+	int uid;
+	int client_fd[31];
 	
-	void login(string ip, int port, int uid)
+	void login(string ip, int port)
 	{
 		global_pipe.init();
 		broadcast("*** User \'(no name)\' entered from " + ID + ". ***", uid);
 	}
-
-	void send_msg()
+	
+	void send_msg(int q, string msg)
 	{
-		
+		write(client_fd[q], msg.c_str());
 	}
 	void broadcast(string q)
 	{
 		
 		for (int i = 1; i <= 30; i++)
 		{
-			share_memory.send_msg(i, q);
+			send_msg(i, q);
 		}
 	}
 	void broadcast(string q, int f)
@@ -411,43 +414,48 @@ public:
 		for (int i = 1; i <= 30; i++)
 		{
 			if (i!=f)
-				share_memory.send_msg(i, q);
+				send_msg(i, q);
 		}
 	}
-	void cmd_who(int uid)
+	void cmd_who()
 	{
+		ostringstream cout;
 		for (int i = 1; i <= 30; i++)
 		{
-			if (share_memory.buf->user_flag[i])
+			if (ex-data->user_flag[i])
 			{
-				cout << i << "\t" << share_memory.buf->name[i] << "\t" ;
-				cout << share_memory.buf->ip[i] << "/" << share_memory.buf->port[i] << "\t";
+				
+				cout << i << "\t" << ex_data->name[i] << "\t" ;
+				cout << ex_data->ip[i] << "/" << ex_data->port[i] << "\t";
 				if (i == uid) cout << "<- me";
 				cout << endl;
+				
 			}
 		}
+		send_msg(uid, cout.str());
 	}
-	void cmd_tell(int to, string &msg, int uid)
+	void cmd_tell(int to, string &msg)
 	{
 		ostringstream sout;
-		sout << "*** " << share_memory.buf->name[uid] << " told you ***:" << msg;
-		share_memory.send_msg(to, sout.str());
+		sout << "*** " << ex_data->name[uid] << " told you ***:" << msg;
+		send_msg(to, sout.str());
 		
 	}
-	void cmd_yell(string &msg, int uid)
+	void cmd_yell(string &msg)
 	{
 		for (int i = 1; i <= 30; i++)
 		{
 			if (i == uid)continue;
 			ostringstream sout;
-			sout << "*** " << share_memory.buf->name[uid] << " yelled " << msg;
-			share_memory.send_msg(i, sout.str());
+			sout << "*** " << ex_data->name[uid] << " yelled " << msg;
+			send_msg(i, sout.str());
 			
 		}
 	}
-	void cmd_name(string q, int uid)
+	void cmd_name(string q)
 	{
-		strcpy(share_memory.buf->name[uid], q.c_str());
+		string ID = "-/-";
+		strcpy(ex_data->name[uid], q.c_str());
 		//)
 		ostringstream sout;
 		//<< 
@@ -456,13 +464,11 @@ public:
 		broadcast(sout.str());
 	}
 
-	void logout(int uid)
+	void logout()
 	{
 		ostringstream sout; 
-		sout << "*** User \'" << share_memory.buf->name[uid] << "\' left. ***";
+		sout << "*** User \'" << ex_data->name[uid] << "\' left. ***";
 		broadcast(sout.str(), uid);
-		share_memory.logout(uid);
-		
 	}
 	
 };
