@@ -1,4 +1,4 @@
-﻿#include <stdio.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -44,7 +44,7 @@ public:
 		}
 		r = listen(l_fd, 10); 
 		//cout << "listen: " << r << endl;
-		//printf("waiting ...\n");
+		printf("waiting ...\n");
 		return l_fd;
 	}
 
@@ -70,15 +70,17 @@ public:
 				ssock = accept(msock, (sockaddr*)&fsin, (socklen_t*)&alen);
 				if (ssock<0)perror("accept ssock");
 				FD_SET(ssock, &afds);
+				continue;
 			}
 			for (int fd = 0; fd < 1024; ++fd)
 			{
 				if (fd != msock && FD_ISSET(fd, &rfds))
 				{
+					/*
 					dup2(0,1000);
-					//dup2(1,1001);
+					dup2(1,1001);
 					dup2(fd,0);
-					//dup2(fd,1);
+					dup2(fd,1);
 					//close(fd);
 					string q;
 					if(getline(cin,q))
@@ -92,12 +94,13 @@ public:
 						FD_CLR(fd, &afds);
 					}
 					dup2(1000,0);
-					//dup2(1001,1);
+					dup2(1001,1);
 					close(1000);
-					//close(1001);
-					//int t = read(fd, buf,sizeof(buf));
-					//cout << "read from " << fd << endl;
-					/*
+					close(1001);
+					*/
+					int t = read(fd, buf,sizeof(buf));
+					cout << "read from " << fd << endl;
+					
 					if (t == 0)
 					{
 						close(fd);
@@ -108,7 +111,7 @@ public:
 						buf[t-1] = '\0';
 						cout << fd << "| " << buf << endl;
 					}
-					*/
+					
 				}
 			}
 		}
@@ -121,3 +124,4 @@ int main()
 	PG_FD_set a;
 	a.go();
 }
+
