@@ -100,14 +100,13 @@ public:
 class PG_FD_set
 {
 public:
-
 	int client_fd[31];
 	fd_set rfds, afds; // read / active file descriptor
 	struct sockaddr_in fsin; // the from address of a client
 	int alen; // from-address length
-	char buf*;
+	char *buf;
 	string cmd;
-	
+	int msock;
 	PG_FD_set()
 	{
 		buf = new char[100000];
@@ -232,20 +231,118 @@ public:
 		}
 	}
 };
+class PG_ChatRoom
+{
+public:
+	PG_global_pipe global_pipe;
 
+	int uid;
+	int *client_fd;
+	string ID[31];
+	PG_ChatRoom()
+	{
+
+		global_pipe.init();
+	}
+	void login(string ip, int port, int q)
+	{
+		uid = q;
+		ostringstream sout;
+		sout << ip << "/" << port;
+		ID[uid] = sout.str();
+		broadcast("*** User \'(no name)\' entered from " + ID[uid] + ". ***", uid);
+	}
+	void send_msg(int q, string msg)
+	{
+		write(client_fd[q], msg.c_str(), 100000);
+	}
+	void broadcast(string q)
+	{
+		
+		for (int i = 1; i <= 30; i++)
+		{
+			send_msg(i, q);
+		}
+	}
+	void broadcast(string q, int f)
+	{
+		for (int i = 1; i <= 30; i++)
+		{
+			if (i!=f)
+				send_msg(i, q);
+		}
+	}
+	void cmd_who()
+	{
+		ostringstream cout;
+		for (int i = 1; i <= 30; i++)
+		{
+			if (ex_data->user_flag[i])
+			{
+				cout << i << "\t" << ex_data->name[i] << "\t" ;
+				cout << ex_data->ip[i] << "/" << ex_data->port[i] << "\t";
+				if (i == uid) cout << "<- me";
+				cout << endl;
+			}
+		}
+		send_msg(uid, cout.str());
+	}
+	void cmd_tell(int to, string &msg)
+	{
+		ostringstream sout;
+		sout << "*** " << ex_data->name[uid] << " told you ***:" << msg;
+		send_msg(to, sout.str());
+		
+	}
+	void cmd_yell(string &msg)
+	{
+		for (int i = 1; i <= 30; i++)
+		{
+			if (i == uid)continue;
+			ostringstream sout;
+			sout << "*** " << ex_data->name[uid] << " yelled " << msg;
+			send_msg(i, sout.str());
+			
+		}
+	}
+	void cmd_name(string q)
+	{
+
+		strcpy(ex_data->name[uid], q.c_str());
+		//)
+		ostringstream sout;
+		//<< 
+		//cout << q.size() << endl;
+		sout << "*** User from " << ID[uid] << " is named \'" << q << "\'. ***";
+		broadcast(sout.str());
+	}
+
+	void logout()
+	{
+		ostringstream sout; 
+		sout << "*** User \'" << ex_data->name[uid] << "\' left. ***";
+		broadcast(sout.str(), uid);
+	}
+	
+};
 class PG_User
 {
 public:
 	PG_pipe Elie;
 	PG_cmd Tio;
 	PG_process Rixia;
-	int seq_no = 0,pid;
+	int seq_no, pid;
+	PG_User()
+	{
+		seq_no = 0;
+		
+	}
 	void shell_main(PG_ChatRoom &ChatRoom)
 	{
 		chdir(ROOT_DIC);
 
 		welcome_msg();
-		ChatRoom.init(Noel.my_ip, Noel.my_port);
+		//ChatRoom.login(Noel.my_ip, Noel.my_port);
 		
 		while (1)
 		{
@@ -382,112 +479,25 @@ public:
 			}
 		}
 	}
-}
-class PG_ChatRoom
-{
-public:
-	PG_global_pipe global_pipe;
-	PG_FIFO FIFO;
-	int uid;
-	int client_fd[31];
-	
-	void login(string ip, int port)
-	{
-		global_pipe.init();
-		broadcast("*** User \'(no name)\' entered from " + ID + ". ***", uid);
-	}
-	
-	void send_msg(int q, string msg)
-	{
-		write(client_fd[q], msg.c_str());
-	}
-	void broadcast(string q)
-	{
-		
-		for (int i = 1; i <= 30; i++)
-		{
-			send_msg(i, q);
-		}
-	}
-	void broadcast(string q, int f)
-	{
-		for (int i = 1; i <= 30; i++)
-		{
-			if (i!=f)
-				send_msg(i, q);
-		}
-	}
-	void cmd_who()
-	{
-		ostringstream cout;
-		for (int i = 1; i <= 30; i++)
-		{
-			if (ex-data->user_flag[i])
-			{
-				
-				cout << i << "\t" << ex_data->name[i] << "\t" ;
-				cout << ex_data->ip[i] << "/" << ex_data->port[i] << "\t";
-				if (i == uid) cout << "<- me";
-				cout << endl;
-				
-			}
-		}
-		send_msg(uid, cout.str());
-	}
-	void cmd_tell(int to, string &msg)
-	{
-		ostringstream sout;
-		sout << "*** " << ex_data->name[uid] << " told you ***:" << msg;
-		send_msg(to, sout.str());
-		
-	}
-	void cmd_yell(string &msg)
-	{
-		for (int i = 1; i <= 30; i++)
-		{
-			if (i == uid)continue;
-			ostringstream sout;
-			sout << "*** " << ex_data->name[uid] << " yelled " << msg;
-			send_msg(i, sout.str());
-			
-		}
-	}
-	void cmd_name(string q)
-	{
-		string ID = "-/-";
-		strcpy(ex_data->name[uid], q.c_str());
-		//)
-		ostringstream sout;
-		//<< 
-		//cout << q.size() << endl;
-		sout << "*** User from " << ID << " is named \'" << q << "\'. ***";
-		broadcast(sout.str());
-	}
-
-	void logout()
-	{
-		ostringstream sout; 
-		sout << "*** User \'" << ex_data->name[uid] << "\' left. ***";
-		broadcast(sout.str(), uid);
-	}
-	
 };
+
 class HyperVisor
 {
 	PG_User User[31];
-	PG_FD_set FD_set;
+	PG_FD_set FDS;
 	PG_ChatRoom ChatRoom;
 	
 	HyperVisor()
 	{
 		ex_data = new PG_extra_data;
+		ChatRoom.client_fd = FDS.client_fd;
 	}
 	void go()
 	{
-		FD_set.listen_port(7000);
+		FDS.listen_port(7000);
 		while (1)
 		{
-			int r = FD_set.go();
+			int r = FDS.go();
 			if (r)
 			{
 				User[r].shell_main(ChatRoom);
@@ -495,38 +505,9 @@ class HyperVisor
 		}
 	}
 	
-}
+};
 int main(int argc, char* argv[])
 {
 
-	PG_ChatRoom ChatRoom;
-	if (argc == 2 && strcmp(argv[1],"init") == 0)
-	{
-		ChatRoom.init_firsttime();
-	}
-	shell_main(ChatRoom);
 	
-	
-	
-	if (argc == 2 && strcmp(argv[1],"init") == 0)
-	{
-		ChatRoom.init_firsttime();
-	}
-	else
-	{
-		//ChatRoom.init();
-		cout << "$$$$$$" << endl;
-		ChatRoom.test();
-	}
-	return 0;
-	
-	/*
-	PG_share_memory PGB;
-	PGB.test();
-	return 0;
-	PG_global_pipe PG;
-	PG.test();
-	return 0;
-	*/
-	shell_main(ChatRoom);
 }
