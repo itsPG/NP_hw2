@@ -21,50 +21,86 @@ public:
 	int SERVER_PORT;
 	struct hostent *he;
 	FILE *fd;
-	void init()
+	int listen_port(int port)
 	{
-		he = gethostbyname("127.0.0.1");
-		int SERVER_PORT = 7000;
-		for (int i = 0; i < 30; i++)
+		int l_fd;
+		//int local_debug = 1;
+		struct sockaddr_in sin;
+		struct sockaddr_in c_in;
+		
+		socklen_t len;
+		//char buf[10000]; 
+		char addr_p[INET_ADDRSTRLEN]; 
+		int n,r; 
+       
+		bzero(&sin, sizeof(sin)); 
+		sin.sin_family = AF_INET; 
+		sin.sin_addr.s_addr = INADDR_ANY; 
+		sin.sin_port = htons(port);
+    
+		l_fd = socket(AF_INET, SOCK_STREAM, 0); 
+		while(1)
 		{
-			cout << i << endl;
-			client_fd[i] = socket(AF_INET,SOCK_STREAM,0);
-			bzero(&client_sin[i],sizeof(client_sin[i]));
-			client_sin[i].sin_family = AF_INET;
-			client_sin[i].sin_addr = *((struct in_addr *)he->h_addr); 
-			client_sin[i].sin_port = htons(SERVER_PORT);
+			r = bind(l_fd, (struct sockaddr *)&sin, sizeof(sin));
+			cout << "bind: " << sin.sin_port << endl;
+			if(r == 0)break;
+			usleep(500000);
 		}
-		FD_ZERO(&r_fds);
-		FD_ZERO(&a_fds);
-		//FD_SET(fileno(fd), &a_fds);
-		FD_SET(0, &a_fds);
+		r = listen(l_fd, 10); 
+		//cout << "listen: " << r << endl;
+		//printf("waiting ...\n");
+		return l_fd;
 	}
+
 	void go()
 	{
-		cout << "go" << endl;
-		memcpy(&r_fds,&a_fds,sizeof(fd_set));
-		if (select(30, &r_fds, NULL, NULL, NULL) < 0)
+		
+		fd_set rfds, afds; // read / active file descriptor
+		struct sockaddr_in fsin; // the from address of a client
+		int alen; // from-address length
+		char buf[10000];
+		int msock = listen_port(7000);
+		FD_ZERO(&afds);
+		FD_SET(msock, &afds);
+		while (1)
 		{
-			//return ;
-			cout << "error" << endl;
-		}
-		for (int i = 0; i < 30; i++)
-		{  
-			if (FD_ISSET(client_fd[i], &r_fds))
+			usleep(100000);
+			memcpy(&rfds, &afds, sizeof(rfds));
+			if (select(1024, &rfds, NULL, NULL, NULL)<0){perror("select");}
+			if (FD_ISSET(msock, &rfds))
 			{
-				cout << "ready !! " << endl;
-				//dup2(0,3510);
-				//dup2(1,3511);
-				//dup2(client_fd[i], 1);
-				//string q;
-				//while (getline(cin, q))cout << q << endl;
-            }
-        }
+				int ssock;
+				alen = sizeof(fsin);
+				ssock = accept(msock, (sockaddr*)&fsin, (socklen_t*)&alen);
+				if (ssock<0)perror("accept ssock");
+				FD_SET(ssock, &afds);
+			}
+			for (int fd = 0; fd < 1024; ++fd)
+			{
+				if (fd != msock && FD_ISSET(fd, &rfds))
+				{
+					int t = read(fd, buf,sizeof(buf));
+					//cout << "read from " << fd << endl;
+					if (t == 0)
+					{
+						close(fd);
+						FD_CLR(fd, &afds);
+					}
+					else 
+					{
+						buf[t-1] = '\0';
+						cout << fd << "| " << buf << endl;
+					}
+				}
+			}
+		}
+		
 	}
+	
 };
 int main()
 {
 	PG_FD_set a;
-	a.init();
+	//a.listen_port(7000);
 	a.go();
 }
