@@ -141,6 +141,7 @@ public:
 	int recv_from_user; 
 	int seq_no, PATH_size;
 	int ext_cmd_clientID;
+	bool success_flag;
 
 	string redirect_from, redirect_to, ext_cmd;
 	string chat_msg; 
@@ -157,10 +158,11 @@ public:
 		send_to_user_flag = 0;
 		recv_from_user = 0;
 		
-		PATH[0] = "bin";
+		PATH[0] = "bin:.";
 		PATH[1] = "bin"; 
-		PATH_size = 1;
-		ENV["PATH"] = "bin";
+		PATH[2] = ".";
+		PATH_size = 2;
+		ENV["PATH"] = "bin:.";
 	}
 	void read()
 	{
@@ -287,6 +289,49 @@ public:
 		for (int i = 0; i < list.size(); i++)
 		cout << list[i] << endl;
 	}
+	int setenv()
+	{
+		int from = 0;
+		if (list[from] == "setenv")
+		{
+			ENV[list[from+1]] = list[from+2];
+			if (list[from+1] != "PATH")return 1;
+			PATH[0] = list[from+2];
+			PATH_size = 0;
+			for (int i = 0; i < PATH[0].size(); i++)
+			{
+				PATH[++PATH_size] = "";
+				while (i < PATH[0].size() && PATH[0][i] !=':')
+				{
+					PATH[PATH_size] += PATH[0][i];
+					i++;
+				} 
+			}
+			return 1;
+		}
+		else return 0;
+		
+	}
+	bool chk_command(int from)
+	{
+		//cout << "checking " << list[from] << endl;
+		if(list[from] == "setenv" || list[from] == "printenv")return 1;
+		if(list[from] == "who" || list[from] == "tell" || list[from] == "yell" || list[from] == "name")return 1;
+		struct stat statbuf;
+		string aim;
+		for (int i=1; i<=PATH_size; i++)
+		{
+			
+			aim =ROOT_DIC + PATH[i] + "/" + list[from];
+
+			if (stat(aim.c_str(), &statbuf) == -1) continue;
+			else
+			{
+				return 1;
+			}
+		}
+		return 0;
+	}
 	void exec(int from, int to)
 	{
 		/***************************** processing build_in commands *****************************/
@@ -309,7 +354,8 @@ public:
 		}
 		if (list[from] == "printenv")
 		{
-			cout << ENV[list[from+1]] << endl;
+			//sleep(11);
+			cout << list[from+1] << "=" << ENV[list[from+1]] << endl;
 			exit(0);
 		}
 		
@@ -317,7 +363,7 @@ public:
 		
 		
 		struct stat statbuf;
-		bool success_flag = 0;
+		success_flag = 0;
 		string aim;
 		for (int i=1; i<=PATH_size; i++)
 		{
@@ -333,7 +379,7 @@ public:
 		}
 		if (!success_flag)
 		{
-			cerr << "Unknown command: [" << list[from] << "]." << endl;
+			cout << "Unknown command: [" << list[from] << "]." << endl;
 			exit(0);
 		}
 		
@@ -462,6 +508,7 @@ public:
 };
 void pipe_exec(PG_pipe &Elie, PG_cmd &Tio, int from, int to)
 {
+
 	PG_process Rixia;
 	int pid;
 	if (from == to)
@@ -479,6 +526,7 @@ void pipe_exec(PG_pipe &Elie, PG_cmd &Tio, int from, int to)
 		dup2(fd[0],0);
 		close(fd[0]);
 		Rixia.Wait();
+		//if (from == 0 && !Tio.success_flag)return ;
 		pipe_exec(Elie,Tio,from+1,to);
 		return ;
 	}
