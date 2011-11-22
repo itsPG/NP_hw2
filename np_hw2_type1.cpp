@@ -18,6 +18,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <signal.h>
+#define FINAL 1
 #define ROOT_DIC "/home/PG/PG/"
 #define DEBUG 0
 #define PIPEMAX 100000
@@ -207,6 +208,8 @@ public:
 			my_uid = login(ssock);
 			string w = welcome_msg();
 			write(ssock, w.c_str(), w.size());
+			w = "*** User \'(no name)\' entered from " + my_ip + "/" + i2s(my_port) + ". ***\n";
+			write(ssock, w.c_str(), w.size());
 			write(ssock,"% ",2);
 			return 0;
 		}
@@ -284,6 +287,7 @@ public:
 	{
 		dup2(client_fd[uid], 0);
 		dup2(client_fd[uid], 1);
+		if (FINAL) dup2(client_fd[uid], 2);
 	}
 	void send_msg(int q, string msg)
 	{
@@ -312,7 +316,7 @@ public:
 	}
 	void cmd_who()
 	{
-
+		ostringstream cout;
 		for (int i = 1; i <= 30; i++)
 		{
 			if (ex_data->user_flag[i])
@@ -324,24 +328,35 @@ public:
 				cout << endl;
 			}
 		}
+		send_msg(uid, cout.str());
 	}
 	void cmd_tell(int to, string &msg)
 	{
+		
 		ostringstream sout;
-		sout << "*** " << ex_data->name[uid] << " told you ***:" << msg << endl;
-		send_msg(to, sout.str());
+		if (ex_data->user_flag[to])
+		{
+			sout << "*** " << ex_data->name[uid] << " told you ***:" << msg << endl;
+			send_msg(to, sout.str());
+		}
+		else
+		{
+			sout << "*** Error: user #" << to << " does not exist yet. ***" << endl;
+			send_msg(uid, sout.str());
+		}
 		
 	}
 	void cmd_yell(string &msg)
 	{
 		for (int i = 1; i <= 30; i++)
 		{
-			if (i == uid)continue;
+			//if (i == uid)continue;
 			ostringstream sout;
 			sout << "*** " << ex_data->name[uid] << " yelled " << msg << endl;
 			send_msg(i, sout.str());
 			
 		}
+		
 	}
 	void cmd_name(string q)
 	{
@@ -404,7 +419,42 @@ public:
 				pipe_to = seq_no + Tio.delay;
 				Elie.connect(seq_no, pipe_to);
 			}
-
+			if (Tio.setenv())
+			{
+				cout << "setenv true" << endl;
+				ChatRoom.send_msg(ChatRoom.uid, "% ");
+				return;
+			}
+			if (!Tio.chk_command(0))
+			{
+				ostringstream sout;
+				cout << "Unknown command" << endl;
+				sout << "Unknown command: [" << Tio.list[0] << "]." << endl;
+				ChatRoom.send_msg(ChatRoom.uid, sout.str());
+				return;
+			}
+			if (Tio.ext_cmd != "")
+			{
+			
+				if (Tio.ext_cmd == "who")
+				{
+					ChatRoom.cmd_who();
+				}
+				if (Tio.ext_cmd == "tell")
+				{
+					ChatRoom.cmd_tell(Tio.ext_cmd_clientID, Tio.chat_msg);
+				}
+				if (Tio.ext_cmd == "yell")
+				{
+					ChatRoom.cmd_yell(Tio.chat_msg);
+				}
+				if (Tio.ext_cmd == "name")
+				{
+					ChatRoom.cmd_name(Tio.chat_msg);
+				}
+				ChatRoom.send_msg(ChatRoom.uid, "% ");
+				return ;
+			}
 			if (pid = Rixia.harmonics())
 			{
 				Elie.fix_main(seq_no);
@@ -507,30 +557,7 @@ public:
 				}
 			
 				
-				if (Tio.ext_cmd != "")
-				{
 				
-					if (Tio.ext_cmd == "who")
-					{
-						ChatRoom.cmd_who();
-						exit(0);
-					}
-					if (Tio.ext_cmd == "tell")
-					{
-						ChatRoom.cmd_tell(Tio.ext_cmd_clientID, Tio.chat_msg);
-						exit(0);
-					}
-					if (Tio.ext_cmd == "yell")
-					{
-						ChatRoom.cmd_yell(Tio.chat_msg);
-						exit(0);
-					}
-					if (Tio.ext_cmd == "name")
-					{
-						ChatRoom.cmd_name(Tio.chat_msg);
-						exit(0);
-					}
-				}
 				if(Tio.pipe_seg.size() > 2)
 				{
 					pipe_exec(Elie, Tio, 0, Tio.pipe_seg.size()-2);
