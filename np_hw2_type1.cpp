@@ -24,11 +24,13 @@
 #define PIPEADD 10000000
 #define PROG_TYPE 2
 using namespace std;
-void welcome_msg()
+string welcome_msg()
 {
-	cout << "****************************************" << endl;
-	cout << "** Welcome to the information server. **" << endl;
-	cout << "****************************************" << endl;
+	ostringstream sout;
+	sout << "****************************************" << endl;
+	sout << "** Welcome to the information server. **" << endl;
+	sout << "****************************************" << endl;
+	return sout.str();
 }
 string i2s(int q)
 {
@@ -178,9 +180,9 @@ public:
 				return i;
 		}
 	}
-	int logout(int fd)
+	int logout(int uid)
 	{
-		int uid = fd_to_uid(fd);
+		//int uid = fd_to_uid(fd);
 		close(client_fd[uid]);
 		FD_CLR(client_fd[uid], &afds);
 		client_fd[uid] = 0;
@@ -203,6 +205,8 @@ public:
 			cout << "port: " << my_port << endl;
 			FD_SET(ssock, &afds);
 			my_uid = login(ssock);
+			string w = welcome_msg();
+			write(ssock, w.c_str(), w.size());
 			write(ssock,"% ",2);
 			return 0;
 		}
@@ -213,7 +217,6 @@ public:
 				
 				int t = read(fd, buf, 100000);
 				cerr << "read from " << fd << endl;
-					
 				if (t == 0)
 				{
 					close(fd);
@@ -229,6 +232,7 @@ public:
 					if (cmd == "")continue;
 					return fd_to_uid(fd);
 				}
+				break;
 			}
 		}
 	}
@@ -268,8 +272,13 @@ public:
 		sout << ip << "/" << port;
 		ID[uid] = sout.str();
 		ex_data->user_flag[uid] = 1;
-		cout << "set " << uid << "user flag to 1" << endl;
-		broadcast("*** User \'(no name)\' entered from " + ID[uid] + ". ***", uid);
+		ex_data->pipe_used_flag[uid] = 0;
+		strcpy(ex_data->name[uid],"(no name)");
+		strcpy(ex_data->ip[uid],ip.c_str());
+		ex_data->port[uid] = port;
+		//cout << "set " << uid << "user flag to 1" << endl;
+		broadcast("*** User \'(no name)\' entered from " + ID[uid] + ". ***\n", uid);
+		
 	}
 	void fix_io()
 	{
@@ -351,6 +360,7 @@ public:
 		ostringstream sout; 
 		sout << "*** User \'" << ex_data->name[uid] << "\' left. ***" << endl;
 		broadcast(sout.str(), uid);
+		ex_data->user_flag[uid] = 0;
 	}
 	
 };
@@ -370,7 +380,7 @@ public:
 	{
 		chdir(ROOT_DIC);
 
-		welcome_msg();
+		
 		//ChatRoom.login(Noel.my_ip, Noel.my_port);
 		
 		//while (1)
@@ -384,7 +394,7 @@ public:
 
 			if (Tio.exit_flag) 
 			{
-				ChatRoom.logout();
+				//ChatRoom.logout();
 				return;
 			}
 		
@@ -398,17 +408,36 @@ public:
 			if (pid = Rixia.harmonics())
 			{
 				Elie.fix_main(seq_no);
+				int uid = ChatRoom.uid;
+				string name = ex_data->name[uid], Tio_cmd = Tio.cmd;
+				Tio_cmd.erase(Tio_cmd.size()-1,1);
+				
+				if (Tio.recv_from_user)
+				{
+					if (ex_data->pipe_used_flag[Tio.recv_from_user] == 0)
+					{
+					}
+					else 
+					{
+						ostringstream sout;
+						sout << "*** " << name << " (#" << i2s(uid) << ") just received from the pipe #" << Tio.recv_from_user;
+						sout << " by \'" << Tio_cmd << "\' ***" << endl;
+						ChatRoom.broadcast(sout.str());
+						cout << "recv from user " << Tio.recv_from_user << endl;
+						ex_data->pipe_used_flag[Tio.recv_from_user] = 0;
+						//Elie.recv_from_user(ChatRoom.global_pipe.FIFO[Tio.recv_from_user].fd);
+					}
+				}
 				Rixia.Wait();
 				if (Tio.send_to_user_flag)
 				{
-					int uid = ChatRoom.uid;
-					string name = ex_data->name[uid], Tio_cmd = Tio.cmd;
-					Tio_cmd.erase(Tio_cmd.size()-1,1);
+					
 					if	(ex_data->pipe_used_flag[uid])
 					{
 					}
 					else
 					{
+						ex_data->pipe_used_flag[uid] = 1;
 						ostringstream sout;
 						sout << "*** " << name << " (#" << i2s(uid) << ") just piped \'" << Tio_cmd;
 						sout << "\' into his/her pipe. ***" << endl;
@@ -448,11 +477,12 @@ public:
 					}
 					else 
 					{
-						ostringstream sout;
-						sout << "*** " << name << " (#" << i2s(uid) << ") just received from the pipe #" << Tio.recv_from_user;
-						sout << " by \'" << Tio_cmd << "\' ***" << endl;
-						ChatRoom.broadcast(sout.str());
-						ex_data->pipe_used_flag[Tio.recv_from_user] = 0;
+						//ostringstream sout;
+						//sout << "*** " << name << " (#" << i2s(uid) << ") just received from the pipe #" << Tio.recv_from_user;
+						//sout << " by \'" << Tio_cmd << "\' ***" << endl;
+						//ChatRoom.broadcast(sout.str());
+						//cout << "recv from user " << Tio.recv_from_user << endl;
+						//ex_data->pipe_used_flag[Tio.recv_from_user] = 0;
 						Elie.recv_from_user(ChatRoom.global_pipe.FIFO[Tio.recv_from_user].fd);
 					}
 				}
@@ -467,9 +497,9 @@ public:
 					else
 					{
 						//cout << "name ~" << name << "~" << endl;
-						ostringstream sout;
-						sout << "*** " << name << " (#" << i2s(uid) << ") just piped \'" << Tio_cmd;
-						sout << "\' into his/her pipe. ***" << endl;
+						//ostringstream sout;
+						//sout << "*** " << name << " (#" << i2s(uid) << ") just piped \'" << Tio_cmd;
+						//sout << "\' into his/her pipe. ***" << endl;
 						//ChatRoom.broadcast(sout.str());
 						ex_data->pipe_used_flag[uid] = 1;
 						Elie.send_to_user(ChatRoom.global_pipe.FIFO[ChatRoom.uid].fd, 1);
@@ -541,6 +571,12 @@ public:
 			{
 				ChatRoom.uid = r;
 				User[r].shell_main(ChatRoom, FDS.cmd);
+				if(User[r].Tio.exit_flag)
+				{
+					ChatRoom.logout();
+					FDS.logout(ChatRoom.uid);
+					User[r].Tio.exit_flag = 0;
+				}
 			}
 			else
 			{
