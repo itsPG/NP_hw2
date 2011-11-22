@@ -317,6 +317,7 @@ public:
 	void cmd_who()
 	{
 		ostringstream cout;
+		cout << "<ID>\t<nickname>\t<IP/port>\t<indicate me>" << endl;
 		for (int i = 1; i <= 30; i++)
 		{
 			if (ex_data->user_flag[i])
@@ -431,6 +432,7 @@ public:
 				cout << "Unknown command" << endl;
 				sout << "Unknown command: [" << Tio.list[0] << "]." << endl;
 				ChatRoom.send_msg(ChatRoom.uid, sout.str());
+				ChatRoom.send_msg(ChatRoom.uid, "% ");
 				return;
 			}
 			if (Tio.ext_cmd != "")
@@ -461,7 +463,7 @@ public:
 				int uid = ChatRoom.uid;
 				string name = ex_data->name[uid], Tio_cmd = Tio.cmd;
 				Tio_cmd.erase(Tio_cmd.size()-1,1);
-				
+				Rixia.Wait();
 				if (Tio.recv_from_user)
 				{
 					if (ex_data->pipe_used_flag[Tio.recv_from_user] == 0)
@@ -478,7 +480,7 @@ public:
 						//Elie.recv_from_user(ChatRoom.global_pipe.FIFO[Tio.recv_from_user].fd);
 					}
 				}
-				Rixia.Wait();
+				
 				if (Tio.send_to_user_flag)
 				{
 					
