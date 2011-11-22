@@ -107,6 +107,12 @@ public:
 	char *buf;
 	string cmd;
 	int msock;
+	
+	int my_port;
+	string my_ip;
+	int my_uid;
+	char addr_p[INET_ADDRSTRLEN];
+
 	PG_FD_set()
 	{
 		buf = new char[100000];
@@ -147,17 +153,19 @@ public:
 	}
 	void init()
 	{
-		int msock = listen_port(7000);
+		msock = listen_port(7000);
 		FD_ZERO(&afds);
 		FD_SET(msock, &afds);
 	}
 	int login(int fd)
 	{
+		cerr << "logining" << endl;
 		for (int i = 1; i <= 30; i++)
 		{
 			if (client_fd[i] == 0)
 			{
 				client_fd[i] = fd;
+				
 				return i;
 			}
 		}
@@ -187,20 +195,27 @@ public:
 			alen = sizeof(fsin);
 			ssock = accept(msock, (sockaddr*)&fsin, (socklen_t*)&alen);
 			if (ssock<0)perror("accept ssock");
+			my_port = ntohs(fsin.sin_port);
+			char addr_p[INET_ADDRSTRLEN];
+			my_ip = inet_ntop(AF_INET, &fsin.sin_addr, addr_p, sizeof(addr_p));
+			
+			cout << "IP: " << my_ip << endl;
+			cout << "port: " << my_port << endl;
 			FD_SET(ssock, &afds);
-			login(ssock);
+			my_uid = login(ssock);
+			write(ssock,"% ",2);
 			return 0;
 		}
 		for (int fd = 0; fd < 1024; ++fd)
 		{
 			if (fd != msock && FD_ISSET(fd, &rfds))
 			{
+				
 				int t = read(fd, buf, 100000);
-				//cout << "read from " << fd << endl;
+				cerr << "read from " << fd << endl;
 					
 				if (t == 0)
 				{
-					
 					close(fd);
 					FD_CLR(fd, &afds);
 					perror("read fail");
@@ -210,6 +225,8 @@ public:
 				{
 					buf[t-1] = '\0';
 					cmd = buf;
+					cout << "cmd size " << cmd.size() << endl;
+					if (cmd == "")continue;
 					return fd_to_uid(fd);
 				}
 			}
@@ -241,8 +258,8 @@ public:
 	string ID[31];
 	PG_ChatRoom()
 	{
-
 		global_pipe.init();
+		
 	}
 	void login(string ip, int port, int q)
 	{
@@ -250,11 +267,23 @@ public:
 		ostringstream sout;
 		sout << ip << "/" << port;
 		ID[uid] = sout.str();
+		ex_data->user_flag[uid] = 1;
+		cout << "set " << uid << "user flag to 1" << endl;
 		broadcast("*** User \'(no name)\' entered from " + ID[uid] + ". ***", uid);
+	}
+	void fix_io()
+	{
+		dup2(client_fd[uid], 0);
+		dup2(client_fd[uid], 1);
 	}
 	void send_msg(int q, string msg)
 	{
-		write(client_fd[q], msg.c_str(), 100000);
+		if (client_fd[q])
+			write(client_fd[q], msg.c_str(), msg.size());
+	}
+	void recv_msg(int q)
+	{
+		//int t = 
 	}
 	void broadcast(string q)
 	{
@@ -274,23 +303,23 @@ public:
 	}
 	void cmd_who()
 	{
-		ostringstream cout;
+
 		for (int i = 1; i <= 30; i++)
 		{
 			if (ex_data->user_flag[i])
 			{
+				//cout << i << endl;
 				cout << i << "\t" << ex_data->name[i] << "\t" ;
 				cout << ex_data->ip[i] << "/" << ex_data->port[i] << "\t";
 				if (i == uid) cout << "<- me";
 				cout << endl;
 			}
 		}
-		send_msg(uid, cout.str());
 	}
 	void cmd_tell(int to, string &msg)
 	{
 		ostringstream sout;
-		sout << "*** " << ex_data->name[uid] << " told you ***:" << msg;
+		sout << "*** " << ex_data->name[uid] << " told you ***:" << msg << endl;
 		send_msg(to, sout.str());
 		
 	}
@@ -300,7 +329,7 @@ public:
 		{
 			if (i == uid)continue;
 			ostringstream sout;
-			sout << "*** " << ex_data->name[uid] << " yelled " << msg;
+			sout << "*** " << ex_data->name[uid] << " yelled " << msg << endl;
 			send_msg(i, sout.str());
 			
 		}
@@ -313,14 +342,14 @@ public:
 		ostringstream sout;
 		//<< 
 		//cout << q.size() << endl;
-		sout << "*** User from " << ID[uid] << " is named \'" << q << "\'. ***";
+		sout << "*** User from " << ID[uid] << " is named \'" << q << "\'. ***" << endl;
 		broadcast(sout.str());
 	}
 
 	void logout()
 	{
 		ostringstream sout; 
-		sout << "*** User \'" << ex_data->name[uid] << "\' left. ***";
+		sout << "*** User \'" << ex_data->name[uid] << "\' left. ***" << endl;
 		broadcast(sout.str(), uid);
 	}
 	
@@ -337,18 +366,20 @@ public:
 		seq_no = 0;
 		
 	}
-	void shell_main(PG_ChatRoom &ChatRoom)
+	void shell_main(PG_ChatRoom &ChatRoom, string cmd)
 	{
 		chdir(ROOT_DIC);
 
 		welcome_msg();
 		//ChatRoom.login(Noel.my_ip, Noel.my_port);
 		
-		while (1)
-		{
-			cout << "% ";
+		//while (1)
+		//{
+			//cout << "% ";
+			//ChatRoom.send_msg(ChatRoom.uid, "% ");
 			Tio.seq_no = ++seq_no;
-			Tio.read();
+			//Tio.read();
+			Tio.cmd = cmd;
 			Tio.parse();
 
 			if (Tio.exit_flag) 
@@ -380,13 +411,15 @@ public:
 					{
 						ostringstream sout;
 						sout << "*** " << name << " (#" << i2s(uid) << ") just piped \'" << Tio_cmd;
-						sout << "\' into his/her pipe. ***";
+						sout << "\' into his/her pipe. ***" << endl;
 						ChatRoom.broadcast(sout.str());
 					}
 				}
+				ChatRoom.send_msg(ChatRoom.uid, "% ");
 			}
 			else
 			{
+				ChatRoom.fix_io();
 				Elie.fix_stdin(seq_no);
 			
 				if (Tio.pipe_err_flag)
@@ -408,14 +441,16 @@ public:
 					//cout << "recv from user" << endl;
 					if (ex_data->pipe_used_flag[Tio.recv_from_user] == 0)
 					{
-						cout << "*** Error: the pipe from #" << Tio.recv_from_user << " does not exist yet. ***" << endl;
+						ostringstream sout;
+						sout << "*** Error: the pipe from #" << Tio.recv_from_user << " does not exist yet. ***" << endl;
+						ChatRoom.send_msg(ChatRoom.uid, sout.str());
 						exit(0);
 					}
 					else 
 					{
 						ostringstream sout;
 						sout << "*** " << name << " (#" << i2s(uid) << ") just received from the pipe #" << Tio.recv_from_user;
-						sout << " by \'" << Tio_cmd << "\' ***";
+						sout << " by \'" << Tio_cmd << "\' ***" << endl;
 						ChatRoom.broadcast(sout.str());
 						ex_data->pipe_used_flag[Tio.recv_from_user] = 0;
 						Elie.recv_from_user(ChatRoom.global_pipe.FIFO[Tio.recv_from_user].fd);
@@ -423,7 +458,7 @@ public:
 				}
 				if (Tio.send_to_user_flag)
 				{
-
+					//cout << "send to user" << endl;
 					if	(ex_data->pipe_used_flag[uid])
 					{
 						cout << "*** Error: your pipe already exists. ***" << endl;
@@ -434,7 +469,7 @@ public:
 						//cout << "name ~" << name << "~" << endl;
 						ostringstream sout;
 						sout << "*** " << name << " (#" << i2s(uid) << ") just piped \'" << Tio_cmd;
-						sout << "\' into his/her pipe. ***";
+						sout << "\' into his/her pipe. ***" << endl;
 						//ChatRoom.broadcast(sout.str());
 						ex_data->pipe_used_flag[uid] = 1;
 						Elie.send_to_user(ChatRoom.global_pipe.FIFO[ChatRoom.uid].fd, 1);
@@ -477,12 +512,13 @@ public:
 					Tio.exec();
 				}
 			}
-		}
+		//}
 	}
 };
 
 class HyperVisor
 {
+public:
 	PG_User User[31];
 	PG_FD_set FDS;
 	PG_ChatRoom ChatRoom;
@@ -490,17 +526,25 @@ class HyperVisor
 	HyperVisor()
 	{
 		ex_data = new PG_extra_data;
+		memset(ex_data, 0, sizeof(PG_extra_data));
 		ChatRoom.client_fd = FDS.client_fd;
 	}
 	void go()
 	{
-		FDS.listen_port(7000);
+		FDS.init();
 		while (1)
 		{
 			int r = FDS.go();
+			cout << "r :" << r << endl;
+			cout << FDS.cmd << endl;
 			if (r)
 			{
-				User[r].shell_main(ChatRoom);
+				ChatRoom.uid = r;
+				User[r].shell_main(ChatRoom, FDS.cmd);
+			}
+			else
+			{
+				ChatRoom.login(FDS.my_ip, FDS.my_port, FDS.my_uid);
 			}
 		}
 	}
@@ -508,6 +552,7 @@ class HyperVisor
 };
 int main(int argc, char* argv[])
 {
-
+	HyperVisor a;
+	a.go();
 	
 }
