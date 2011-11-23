@@ -232,7 +232,7 @@ public:
 					buf[t-1] = '\0';
 					cmd = buf;
 					cout << "cmd size " << cmd.size() << endl;
-					if (cmd == "")continue;
+					if (cmd.size() == 1)continue;
 					return fd_to_uid(fd);
 				}
 				break;
@@ -565,7 +565,7 @@ public:
 						//sout << "\' into his/her pipe. ***" << endl;
 						//ChatRoom.broadcast(sout.str());
 						ex_data->pipe_used_flag[uid] = 1;
-						Elie.send_to_user(ChatRoom.global_pipe.FIFO[ChatRoom.uid].fd, 1);
+						Elie.send_to_user(ChatRoom.global_pipe.FIFO[ChatRoom.uid].fd, Tio.send_to_user_flag);
 					}
 				}
 			

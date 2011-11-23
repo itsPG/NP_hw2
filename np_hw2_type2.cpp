@@ -523,7 +523,7 @@ void shell_main(PG_ChatRoom &ChatRoom)
 					sout << "\' into his/her pipe. ***";
 					//ChatRoom.broadcast(sout.str());
 					//share_memory.buf->pipe_used_flag[uid] = 1;
-					Elie.send_to_user(ChatRoom.global_pipe.FIFO[ChatRoom.uid].fd, 1);
+					Elie.send_to_user(ChatRoom.global_pipe.FIFO[ChatRoom.uid].fd, Tio.send_to_user_flag);
 				}
 			}
 			
