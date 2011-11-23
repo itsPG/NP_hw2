@@ -426,11 +426,22 @@ public:
 				ChatRoom.send_msg(ChatRoom.uid, "% ");
 				return;
 			}
+			/*
 			if (!Tio.chk_command(0))
 			{
 				ostringstream sout;
 				cout << "Unknown command" << endl;
 				sout << "Unknown command: [" << Tio.list[0] << "]." << endl;
+				ChatRoom.send_msg(ChatRoom.uid, sout.str());
+				ChatRoom.send_msg(ChatRoom.uid, "% ");
+				return;
+			}
+			*/
+			string tmp = Tio.chk_all_cmd();
+			if (tmp != "")
+			{
+				ostringstream sout;
+				sout << tmp;
 				ChatRoom.send_msg(ChatRoom.uid, sout.str());
 				ChatRoom.send_msg(ChatRoom.uid, "% ");
 				return;
