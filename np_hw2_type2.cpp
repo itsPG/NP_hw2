@@ -266,7 +266,7 @@ public:
 		uid = share_memory.user_id;
 		global_pipe.init();
 		//cout << "the ID of this user is " << ID << endl;
-		broadcast("*** User \'(no name)\' entered from " + ID + ". ***", uid);
+		broadcast("*** User \'(no name)\' entered from " + ID + ". ***");
 	}
 	string recv_msg()
 	{
@@ -274,7 +274,7 @@ public:
 	}
 	void broadcast(string q)
 	{
-		cout.flush();
+		//cout.flush();
 		//cout << "broadcast ==== " << q << endl;
 		for (int i = 1; i <= 30; i++)
 		{
@@ -291,6 +291,7 @@ public:
 	}
 	void cmd_who()
 	{
+		cout << "<ID>\t<nickname>\t<IP/port>\t<indicate me>" << endl;
 		for (int i = 1; i <= 30; i++)
 		{
 			if (share_memory.buf->user_flag[i])
@@ -305,15 +306,23 @@ public:
 	void cmd_tell(int to, string &msg)
 	{
 		ostringstream sout;
-		sout << "*** " << share_memory.buf->name[uid] << " told you ***:" << msg;
-		share_memory.send_msg(to, sout.str());
+		if(!share_memory.buf->user_flag[to])
+		{
+			sout << "*** Error: user #" << to << " does not exist yet. ***" << endl;
+			share_memory.send_msg(uid, sout.str());
+		}
+		else
+		{
+			sout << "*** " << share_memory.buf->name[uid] << " told you ***:" << msg;
+			share_memory.send_msg(to, sout.str());
+		}
 		
 	}
 	void cmd_yell(string &msg)
 	{
 		for (int i = 1; i <= 30; i++)
 		{
-			if (i == uid)continue;
+			
 			ostringstream sout;
 			sout << "*** " << share_memory.buf->name[uid] << " yelled " << msg;
 			share_memory.send_msg(i, sout.str());
@@ -380,18 +389,15 @@ void shell_main(PG_ChatRoom &ChatRoom)
 	chdir(ROOT_DIC);
 	Noel.go();
 	
-	cout << "before SIGUSER" << endl;
+	//cout << "before SIGUSER" << endl;
 	if (signal(SIGUSR1,handler) == SIG_ERR)
 	{
 		perror("cant regist SIGUSR1");
 	}
 	welcome_msg();
-	
-	if (PROG_TYPE == 1)
-		ChatRoom.init(Noel.my_ip, Noel.my_port);
-	else
-		ChatRoom.init(Noel.my_ip, getpid());
-	
+	//cout << "1" << endl;
+	ChatRoom.init(Noel.my_ip, getpid());
+	//cout << "2" << endl;
 	
 	while (1)
 	{
@@ -418,10 +424,17 @@ void shell_main(PG_ChatRoom &ChatRoom)
 			Elie.connect(seq_no, pipe_to);
 		}
 		//cout << "before fork" << endl;
+		string tmp = Tio.chk_all_cmd();
+		if (tmp != "")
+		{
+			cout << tmp;
+			continue;
+		}
 		if (pid = Rixia.harmonics())
 		{
 			Elie.fix_main(seq_no);
 			Rixia.Wait();
+			if (Tio.setenv())continue;
 			if (Tio.send_to_user_flag)
 			{
 				int uid = ChatRoom.uid;
@@ -435,6 +448,25 @@ void shell_main(PG_ChatRoom &ChatRoom)
 					ostringstream sout;
 					sout << "*** " << name << " (#" << i2s(uid) << ") just piped \'" << Tio_cmd;
 					sout << "\' into his/her pipe. ***";
+					share_memory.buf->pipe_used_flag[uid] = 1;
+					ChatRoom.broadcast(sout.str());
+				}
+			}
+			if (Tio.recv_from_user)
+			{
+				int uid = ChatRoom.uid;
+				string name = share_memory.buf->name[uid], Tio_cmd = Tio.cmd;
+				Tio_cmd.erase(Tio_cmd.size()-1,1);
+				//cout << "recv from user" << endl;
+				if (share_memory.buf->pipe_used_flag[Tio.recv_from_user] == 0)
+				{
+				}
+				else 
+				{
+					ostringstream sout;
+					sout << "*** " << name << " (#" << i2s(uid) << ") just received from the pipe #" << Tio.recv_from_user;
+					sout << " by \'" << Tio_cmd << "\' ***";
+					share_memory.buf->pipe_used_flag[Tio.recv_from_user] = 0;
 					ChatRoom.broadcast(sout.str());
 				}
 			}
@@ -470,8 +502,8 @@ void shell_main(PG_ChatRoom &ChatRoom)
 					ostringstream sout;
 					sout << "*** " << name << " (#" << i2s(uid) << ") just received from the pipe #" << Tio.recv_from_user;
 					sout << " by \'" << Tio_cmd << "\' ***";
-					ChatRoom.broadcast(sout.str());
-					share_memory.buf->pipe_used_flag[Tio.recv_from_user] = 0;
+					//ChatRoom.broadcast(sout.str());
+					//share_memory.buf->pipe_used_flag[Tio.recv_from_user] = 0;
 					Elie.recv_from_user(ChatRoom.global_pipe.FIFO[Tio.recv_from_user].fd);
 				}
 			}
@@ -490,7 +522,7 @@ void shell_main(PG_ChatRoom &ChatRoom)
 					sout << "*** " << name << " (#" << i2s(uid) << ") just piped \'" << Tio_cmd;
 					sout << "\' into his/her pipe. ***";
 					//ChatRoom.broadcast(sout.str());
-					share_memory.buf->pipe_used_flag[uid] = 1;
+					//share_memory.buf->pipe_used_flag[uid] = 1;
 					Elie.send_to_user(ChatRoom.global_pipe.FIFO[ChatRoom.uid].fd, 1);
 				}
 			}

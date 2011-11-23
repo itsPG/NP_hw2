@@ -332,6 +332,22 @@ public:
 		}
 		return 0;
 	}
+	string chk_all_cmd()
+	{
+		// a | b | c
+		//-1  1    3   5
+		ostringstream sout;
+		for (int i = 0; i < pipe_seg.size()-1; i++)
+		{
+			//cout << "checking " << i << " " << list[pipe_seg[i]+1] << endl;
+			if (!chk_command(pipe_seg[i]+1))
+			{
+				sout << "Unknown command: [" << list[pipe_seg[i]+1] << "]." << endl;
+			}
+		}
+		return sout.str();
+		
+	}
 	void exec(int from, int to)
 	{
 		/***************************** processing build_in commands *****************************/
