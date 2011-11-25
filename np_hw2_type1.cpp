@@ -202,6 +202,8 @@ public:
 			char addr_p[INET_ADDRSTRLEN];
 			my_ip = inet_ntop(AF_INET, &fsin.sin_addr, addr_p, sizeof(addr_p));
 			
+			my_ip = "nctu";
+			my_port = 5566;
 			cout << "IP: " << my_ip << endl;
 			cout << "port: " << my_port << endl;
 			FD_SET(ssock, &afds);

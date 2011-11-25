@@ -154,6 +154,9 @@ public:
 				strcpy(buf->ip[i], ip.c_str());
 				buf->port[i] = port;
 				buf->pid[i] = getpid();
+				
+				
+				
 				if (DEBUG)cout << "ip : " << buf->ip[i] << endl;
 				if (DEBUG)cout << "port : " << buf->port[i] << endl;
 				return;
@@ -396,7 +399,8 @@ void shell_main(PG_ChatRoom &ChatRoom)
 	}
 	welcome_msg();
 	//cout << "1" << endl;
-	ChatRoom.init(Noel.my_ip, getpid());
+	//ChatRoom.init(Noel.my_ip, getpid());
+	ChatRoom.init("nctu", 5566);
 	//cout << "2" << endl;
 	
 	while (1)
