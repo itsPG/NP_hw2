@@ -387,7 +387,7 @@ void shell_main(PG_ChatRoom &ChatRoom)
 	int seq_no = 0,pid;
 	PG_TCP Noel;
 	chdir(ROOT_DIC);
-	Noel.go();
+	Noel.go(7100);
 	
 	//cout << "before SIGUSER" << endl;
 	if (signal(SIGUSR1,handler) == SIG_ERR)

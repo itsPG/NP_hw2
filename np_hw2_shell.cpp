@@ -467,7 +467,7 @@ public:
 			else return 0;
 		}
 	}
-	void go()
+	void go(int aim_port)
 	{
 		struct sockaddr_in sin;
 		struct sockaddr_in cin;
@@ -475,7 +475,7 @@ public:
 		socklen_t len;
 		char buf[10000]; 
 		char addr_p[INET_ADDRSTRLEN]; 
-		int port = 7000;
+		int port = aim_port;
 		int n,r; 
        
 		bzero(&sin, sizeof(sin)); 
@@ -519,6 +519,10 @@ public:
 				return ;
 			}
 		}
+	}
+	void go()
+	{
+		go(7000);
 	}
 
 };
