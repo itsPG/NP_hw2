@@ -148,6 +148,7 @@ public:
 	int size;
 	bool exit_flag, pipe_err_flag;
 	
+	int target_no;
 	PG_cmd()
 	{
 		size = 0;
@@ -241,6 +242,14 @@ public:
 			chat_msg.erase(chat_msg.size()-1,1);
 			
 		}
+		if (list[0] == "change")
+		{
+			istringstream ssin(cmd);
+			int id;
+			ssin >> ext_cmd >> target_no;
+			
+			
+		}
 		if (list[0] == "yell" || list[0] == "name")
 		{
 			istringstream ssin(cmd);
@@ -316,7 +325,7 @@ public:
 	{
 		//cout << "checking " << list[from] << endl;
 		if(list[from] == "setenv" || list[from] == "printenv")return 1;
-		if(list[from] == "who" || list[from] == "tell" || list[from] == "yell" || list[from] == "name")return 1;
+		if(list[from] == "who" || list[from] == "tell" || list[from] == "yell" || list[from] == "name" || list[from] == "change")return 1;
 		struct stat statbuf;
 		string aim;
 		for (int i=1; i<=PATH_size; i++)
@@ -342,7 +351,7 @@ public:
 			//cout << "checking " << i << " " << list[pipe_seg[i]+1] << endl;
 			if (!chk_command(pipe_seg[i]+1))
 			{
-				sout << "Unknown command: [" << list[pipe_seg[i]+1] << "]." << endl;
+				sout << "Unknown command2: [" << list[pipe_seg[i]+1] << "]." << endl;
 			}
 		}
 		return sout.str();
@@ -475,7 +484,7 @@ public:
 		socklen_t len;
 		char buf[10000]; 
 		char addr_p[INET_ADDRSTRLEN]; 
-		int port = 7000;
+		int port = 7001;
 		int n,r; 
        
 		bzero(&sin, sizeof(sin)); 

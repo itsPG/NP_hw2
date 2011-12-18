@@ -292,6 +292,14 @@ public:
 				share_memory.send_msg(i, q);
 		}
 	}
+	void cmd_change(int q)
+	{
+		string a = share_memory.buf->name[uid];
+		string b = share_memory.buf->name[q];
+		strcpy(share_memory.buf->name[uid], b.c_str());
+		strcpy(share_memory.buf->name[q], a.c_str());
+		cout << "name changed" << endl;
+	}
 	void cmd_who()
 	{
 		cout << "<ID>\t<nickname>\t<IP/port>\t<indicate me>" << endl;
@@ -341,6 +349,10 @@ public:
 		//cout << q.size() << endl;
 		sout << "*** User from " << ID << " is named \'" << q << "\'. ***";
 		broadcast(sout.str());
+	}
+	void cmd_changename(int id, string q)
+	{
+		
 	}
 	void test()
 	{
@@ -534,7 +546,13 @@ void shell_main(PG_ChatRoom &ChatRoom)
 				
 			if (Tio.ext_cmd != "")
 			{
-				
+				cout << "ext cmd" << Tio.ext_cmd << endl;
+				if (Tio.ext_cmd == "change")
+				{
+					
+					ChatRoom.cmd_change(Tio.target_no);
+					exit(0);
+				}
 				if (Tio.ext_cmd == "who")
 				{
 					ChatRoom.cmd_who();
@@ -566,6 +584,7 @@ void shell_main(PG_ChatRoom &ChatRoom)
 			}
 			else
 			{
+				cout << "exec!!" << endl;
 				Tio.exec();
 			}
 		}
